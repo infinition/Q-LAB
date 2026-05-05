@@ -1,4 +1,4 @@
-# Q-LAB-2D:  Gridworld AI Simulator
+# Q-LAB:  Gridworld AI Simulator
 
 **A high-performance, zero-dependency visualization of Reinforcement Learning running entirely in your browser.**
 
@@ -18,7 +18,7 @@ Watch an AI agent learn to navigate complex mazes using the Q-Learning algorithm
 
 ### 🌐 Live Demo
 
-Experience the simulator instantly: **[https://infinition.github.io/Q-LAB-2D/](https://infinition.github.io/Q-LAB-2D/)**
+Experience the simulator instantly: **[https://infinition.github.io/Q-LAB/](https://infinition.github.io/Q-LAB/)**
 
 -----
 <img width="2500" height="1267" alt="image" src="https://github.com/user-attachments/assets/bd147064-65eb-4074-8ecf-e7c61e693b91" />

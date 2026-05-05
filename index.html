@@ -1,1493 +1,1170 @@
 <!DOCTYPE html>
 <html lang="fr">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="description" content="Simulateur Q-Learning interactif - Environnement Gridworld">
-    <meta name="theme-color" content="#0f172a">
-    <title>Q-Lab-2D</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Q-Lab 2D / 3D / Smart</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0f1115;--bg-panel:rgba(15,17,21,.98);--surface:rgba(255,255,255,.04);--surface-h:rgba(255,255,255,.08);
+  --primary:#00d4ff;--primary-g:rgba(0,212,255,.3);--accent:#0070ff;
+  --success:#10b981;--danger:#f43f5e;--warn:#f59e0b;--info:#3b82f6;
+  --fire:#ff4500;--text:#e2e8f0;--muted:#94a3b8;
+  --border:1px solid rgba(255,255,255,.07);--r:10px;--sidebar-w:300px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{width:100%;height:100%;overflow:hidden;}
+body{font-family:'Space Grotesk',sans-serif;background:radial-gradient(ellipse at top right,#001a33 0%,var(--bg) 60%);color:var(--text);display:flex;user-select:none;-webkit-tap-highlight-color:transparent;}
+::-webkit-scrollbar{width:4px;} ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px;}
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+/* SIDEBAR */
+#sidebar{width:var(--sidebar-w);flex-shrink:0;background:var(--bg-panel);border-right:var(--border);display:flex;flex-direction:column;transition:width .3s cubic-bezier(.4,0,.2,1);z-index:200;overflow:hidden;}
+#sidebar.collapsed{width:0;}
+#sidebar .sb-body{height:0;flex:1;overflow-y:auto;overflow-x:hidden;padding:10px;display:flex;flex-direction:column;gap:5px;}
+#sidebar .sb-body::-webkit-scrollbar{width:5px;}
+#sidebar .sb-body::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:3px;}
+#sidebar .sb-body::-webkit-scrollbar-track{background:rgba(0,0,0,.2);}
+.sb-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1999;opacity:0;pointer-events:none;transition:opacity 0.3s;}
+@media(max-width:860px){
+  #sidebar{position:fixed;top:0;left:0;width:280px;height:100%;z-index:2000;transform:translateX(0);transition:transform .3s;}
+  #sidebar.collapsed{width:280px;transform:translateX(-100%);}
+  .sb-backdrop.show{opacity:1;pointer-events:auto;}
+}
+@media(min-width:861px){.sb-backdrop{display:none!important;}}
+.sb-head{padding:12px 16px;border-bottom:var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:rgba(0,0,0,.2);white-space:nowrap;}
+.logo{display:flex;align-items:center;gap:8px;font-weight:700;font-size:.95rem;}
+.badge{font-size:.5rem;padding:2px 7px;border-radius:4px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;}
+.b2d{background:var(--info);color:#fff;}.b3d{background:var(--success);color:#000;}
+.acc{border-radius:8px;background:var(--surface);overflow:hidden;}
+.acc-h{padding:8px 12px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);transition:color .2s,background .2s;white-space:nowrap;}
+.acc-h:hover{color:var(--text);background:var(--surface-h);}
+.chev{font-size:.6rem;transition:transform .25s;}.acc.open .chev{transform:rotate(180deg);}
+.acc-b{display:none;padding:4px 12px 12px;}.acc.open .acc-b{display:block;}
+.cg{margin-top:8px;}
+.cg-lbl{display:flex;justify-content:space-between;align-items:center;font-size:.75rem;color:#94a3b8;margin-bottom:4px;}
+.cg-val{font-family:'JetBrains Mono';font-size:.8em;color:var(--primary);}
+input[type=range]{-webkit-appearance:none;width:100%;height:3px;background:rgba(255,255,255,.09);border-radius:2px;outline:none;cursor:pointer;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;background:var(--text);border-radius:50%;cursor:pointer;box-shadow:0 0 0 2px rgba(0,212,255,.4);}
+select{width:100%;background:rgba(0,0,0,.5);border:var(--border);border-radius:6px;color:var(--text);padding:4px 7px;font-size:.7rem;font-family:inherit;outline:none;}
+.btn-row{display:flex;gap:6px;margin-top:8px;}
+.sb-btn{flex:1;padding:6px 8px;border-radius:7px;border:var(--border);background:var(--surface);color:var(--muted);font-size:.7rem;cursor:pointer;font-family:inherit;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:5px;}
+.sb-btn:hover{background:var(--surface-h);color:var(--text);}
+.sb-btn.pri{background:var(--primary);border-color:var(--primary);color:#fff;}
+.sb-btn.pri:hover{filter:brightness(1.15);}
+.gen-row{display:flex;align-items:center;gap:8px;margin-top:6px;}
+.gen-lbl{font-size:.68rem;color:var(--muted);width:62px;flex-shrink:0;}
+.gen-val{font-family:'JetBrains Mono';font-size:.7rem;color:var(--accent);width:28px;text-align:right;flex-shrink:0;}
+.goals-list{display:flex;flex-direction:column;gap:4px;margin-top:6px;}
+.goal-item{display:flex;align-items:center;gap:5px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:6px;padding:4px 7px;}
+.goal-item-pos{font-family:'JetBrains Mono';font-size:.62rem;color:var(--accent);flex:1;}
+.goal-item-rw{font-family:'JetBrains Mono';font-size:.72rem;color:var(--success);font-weight:700;min-width:35px;text-align:right;}
+.goal-item-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:.7rem;padding:0 2px;}
+.goal-item-del:hover{color:var(--danger);}
 
-    <style>
-        /* * DESIGN SYSTEM & VARIABLES
-         * Palette "Midnight Neon" pour un look pro et technique.
-         */
-        :root {
-            /* Couleurs de fond et surfaces */
-            --bg-app: #0b1121;          /* Fond principal très sombre */
-            --bg-panel: #151e32;        /* Panneaux latéraux */
-            --bg-glass: rgba(21, 30, 50, 0.85); /* Effet verre fumé */
-            
-            /* Couleurs sémantiques */
-            --primary: #6366f1;         /* Action principale (Indigo) */
-            --primary-glow: rgba(99, 102, 241, 0.4);
-            --success: #10b981;         /* Succès / Start (Emerald) */
-            --danger: #ef4444;          /* Echec / Danger (Red) */
-            --warning: #f59e0b;         /* Alertes (Amber) */
-            --info: #3b82f6;            /* Information (Blue) */
-            
-            /* Éléments d'interface */
-            --text-main: #f1f5f9;       /* Texte principal */
-            --text-muted: #94a3b8;      /* Texte secondaire */
-            --border: 1px solid rgba(255, 255, 255, 0.08);
-            --border-active: 1px solid rgba(99, 102, 241, 0.5);
-            
-            /* Utilitaires */
-            --radius-sm: 6px;
-            --radius-md: 8px;
-            --radius-lg: 12px;
-            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
-            --font-ui: 'Inter', system-ui, sans-serif;
-            --font-code: 'JetBrains Mono', monospace;
-        }
+/* MAIN */
+#main{flex:1;display:flex;flex-direction:column;min-width:0;height:100%;position:relative;}
+.topbar{height:46px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 14px;border-bottom:var(--border);background:rgba(6,10,18,.9);backdrop-filter:blur(12px);z-index:40;}
+.topbar-l,.topbar-r{display:flex;gap:6px;align-items:center;}
+.icon-btn{width:30px;height:30px;border-radius:7px;border:var(--border);background:transparent;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.82rem;transition:all .2s;}
+.icon-btn:hover{background:var(--surface-h);color:var(--text);}
+.icon-btn.active{background:var(--primary);color:#fff;border-color:var(--primary);}
+.lang-btn{background:var(--surface);border:var(--border);border-radius:5px;color:var(--muted);padding:2px 7px;font-size:.65rem;cursor:pointer;font-family:inherit;font-weight:700;transition:all .2s;}
+.lang-btn:hover{color:var(--text);}
+.mode-toggle{display:flex;background:rgba(0,0,0,.45);border:var(--border);border-radius:9px;padding:3px;gap:2px;}
+.mode-btn{padding:3px 13px;border-radius:6px;border:none;background:transparent;color:var(--muted);font-size:.72rem;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s;}
+.mode-btn.active{background:var(--primary);color:#fff;box-shadow:0 2px 10px var(--primary-g);}
+.playback{display:flex;gap:3px;background:rgba(0,0,0,.35);padding:3px;border-radius:8px;border:var(--border);}
+.pb-btn{width:28px;height:28px;border-radius:6px;border:none;background:transparent;color:var(--muted);cursor:pointer;font-size:.78rem;transition:all .2s;display:flex;align-items:center;justify-content:center;}
+.pb-btn:hover{background:rgba(255,255,255,.1);color:var(--text);}
+.pb-play{background:var(--success);color:#000;}.pb-play:hover{filter:brightness(1.1);}
+.pb-play.running{background:var(--danger);color:#fff;}
+.pb-sep{width:1px;background:rgba(255,255,255,.12);margin:0 2px;}
+.topbar-btn{height:24px;border-radius:5px;border:var(--border);color:var(--muted);padding:0 8px;font-size:.62rem;cursor:pointer;font-family:inherit;font-weight:700;transition:all .2s;background:var(--surface);display:flex;align-items:center;gap:4px;}
+.topbar-btn:hover{color:var(--text);background:var(--surface-h);}
+.topbar-btn.active{background:rgba(6,182,212,.2);border-color:var(--accent);color:var(--accent);}
 
-        /* Reset & Base */
-        * { box-sizing: border-box; touch-action: manipulation; -webkit-tap-highlight-color: transparent; user-select: none; }
-        
-        body {
-            margin: 0;
-            font-family: var(--font-ui);
-            background-color: var(--bg-app);
-            /* Subtil gradient de fond pour la profondeur */
-            background-image: radial-gradient(circle at 100% 0%, #1e293b 0%, var(--bg-app) 50%);
-            color: var(--text-main);
-            height: 100vh;
-            width: 100vw;
-            overflow: hidden;
-            display: flex;
-        }
+/* HUD */
+#hud{flex-shrink:0;border-bottom:var(--border);background:rgba(0,0,0,.18);display:flex;flex-direction:column;}
+.hud-stats{display:flex;align-items:stretch;overflow-x:auto;cursor:pointer;}
+.hud-stats:hover{background:rgba(255,255,255,.02);}
+.stat{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:5px 10px;border-right:var(--border);min-width:60px;}
+.stat-l{font-size:.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;white-space:nowrap;}
+.stat-v{font-family:'JetBrains Mono';font-weight:700;font-size:.85rem;margin-top:1px;}
+.sv-g{color:var(--success);}.sv-p{color:var(--primary);}.sv-w{color:var(--warn);}
+.hud-graph-wrap{height:145px;padding:5px 14px 8px;transition:height .3s,opacity .3s,padding .3s;overflow:hidden;}
+#hud.graph-hidden .hud-graph-wrap{height:0;padding:0;opacity:0;}
+.graph-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;}
+.gnav-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:.7rem;padding:2px 5px;}
+.gnav-btn:hover{color:var(--text);}
+#math-disp{background:rgba(6,10,18,.92);border-bottom:var(--border);border-left:2px solid var(--primary);font-family:'JetBrains Mono';font-size:.68rem;color:var(--text);overflow:hidden;transition:all .3s;height:0;opacity:0;pointer-events:none;}
+#hud.math-open #math-disp{height:auto;opacity:1;padding:10px 14px;}
 
-        /* --- SIDEBAR (Panneau de configuration) --- */
-        #sidebar {
-            width: 340px;
-            background: var(--bg-panel);
-            border-right: var(--border);
-            display: flex;
-            flex-direction: column;
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), margin 0.3s ease;
-            position: relative;
-            z-index: 1000;
-            flex-shrink: 0;
-            box-shadow: 4px 0 24px rgba(0,0,0,0.2);
-        }
+/* TOUCH STRIPS */
+.tstrip{display:flex;flex-wrap:wrap;gap:7px;padding:4px 12px;flex-shrink:0;border-bottom:var(--border);}
+.ts{flex:1;min-width:120px;height:36px;background:rgba(0,0,0,.4);border-radius:7px;position:relative;overflow:hidden;border:var(--border);cursor:ew-resize;touch-action:none;}
+.ts-fill{position:absolute;top:0;left:0;height:100%;opacity:.4;pointer-events:none;transition:width .04s;}
+.ts-lbl{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:.61rem;font-weight:700;color:#fff;text-shadow:0 1px 3px #000;pointer-events:none;white-space:nowrap;text-align:center;line-height:1.3;}
+.ts-sub{font-family:'JetBrains Mono';font-size:.72em;opacity:.85;display:block;}
+#ts-spd .ts-fill{background:var(--success);}#ts-eps .ts-fill{background:var(--warn);}
+#ts-alp .ts-fill{background:#ec4899;}#ts-gam .ts-fill{background:var(--primary);}
 
-        #sidebar.collapsed { transform: translateX(-340px); margin-right: -340px; }
+/* STAGE */
+#stage{flex:1;position:relative;overflow:hidden;min-height:0;display:flex;}
+#stage-2d{flex:1;display:flex;align-items:center;justify-content:center;padding:14px;position:relative;}
+#canvas2d{border-radius:var(--r);box-shadow:0 8px 30px rgba(0,0,0,.6);touch-action:none;cursor:crosshair;max-width:100%;max-height:100%;}
+#stage-3d{flex:1;display:none;}#stage-3d canvas{width:100%!important;height:100%!important;display:block;}
+/* Stages */
 
-        .sidebar-header {
-            padding: 16px 20px;
-            border-bottom: var(--border);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background: rgba(0,0,0,0.2);
-        }
+/* TOOLBAR (2D/3D) */
+#toolbar{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);background:rgba(6,10,18,.92);border:var(--border);padding:4px 6px;border-radius:24px;display:flex;flex-direction:row;gap:3px;align-items:center;z-index:60;box-shadow:0 8px 30px rgba(0,0,0,.7);backdrop-filter:blur(10px);transition:all .3s;}
+#toolbar.tb-vert{bottom:auto;top:50%;left:auto;right:8px;transform:translateY(-50%);flex-direction:column;padding:6px 4px;}
+.t-btn-wrap{position:relative;}
+.t-btn{width:34px;height:34px;border-radius:50%;border:none;background:transparent;color:var(--muted);cursor:pointer;font-size:.88rem;transition:all .18s;display:flex;align-items:center;justify-content:center;}
+.t-btn:hover{background:var(--surface-h);transform:scale(1.1);}
+.t-btn[data-t=view] i{color:#94a3b8;}.t-btn[data-t=policy] i{color:#ca8a04;}.t-btn[data-t=heatmap] i{color:#ea580c;}
+.t-btn[data-t=wall] i{color:#8896a8;}.t-btn[data-t=mud] i{color:#b45309;}.t-btn[data-t=ice] i{color:#06b6d4;}
+.t-btn[data-t=fire] i{color:var(--fire);}.t-btn[data-t=portal] i{color:#00d4ff;}
+.t-btn[data-t=goal] i{color:#10b981;}.t-btn[data-t=start] i{color:#3b82f6;}.t-btn[data-t=eraser] i{color:#f43f5e;}
+.t-btn.active{color:#fff!important;}.t-btn.active i{color:#fff!important;}
+.t-btn[data-t=view].active{background:var(--primary);box-shadow:0 0 12px var(--primary-g);}
+.t-btn[data-t=wall].active{background:#475569;}
+.t-btn[data-t=mud].active{background:#78350f;}
+.t-btn[data-t=ice].active{background:#0891b2;}
+.t-btn[data-t=fire].active{background:#b91c1c;box-shadow:0 0 14px rgba(255,69,0,.6);}
+.t-btn[data-t=portal].active{background:#00d4ff;box-shadow:0 0 12px rgba(0,212,255,.5);}
+.t-btn[data-t=goal].active{background:var(--success);}
+.t-btn[data-t=start].active{background:var(--info);}
+.t-btn[data-t=eraser].active{background:var(--danger);}
+.t-btn[data-t=heatmap].active{background:#ea580c;}
+.t-btn[data-t=policy].active{background:#ca8a04;}
+.t-sep{width:1px;height:20px;background:rgba(255,255,255,.1);margin:0 4px;}
+#toolbar.tb-vert .t-sep{width:20px;height:1px;margin:2px 0;}
+.t-tip{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:#0f172a;border:1px solid rgba(255,255,255,.15);color:#fff;padding:3px 8px;border-radius:6px;font-size:.63rem;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s;z-index:200;}
+#toolbar.tb-vert .t-tip{bottom:auto;left:auto;right:calc(100% + 8px);top:50%;transform:translateY(-50%);}
+.t-btn-wrap:hover .t-tip{opacity:1;}
 
-        .logo {
-            font-weight: 800; font-size: 1.1rem; letter-spacing: -0.5px; color: var(--text-main);
-            display: flex; align-items: center; gap: 10px;
-        }
-        
-        .version-tag {
-            font-family: var(--font-code); font-size: 0.6rem; 
-            background: var(--primary); color: white; 
-            padding: 2px 6px; border-radius: 4px; font-weight: 700;
-        }
+/* OVERLAYS */
+#kbd-badge{position:absolute;top:8px;left:50%;transform:translateX(-50%);background:rgba(0,212,255,.9);color:#fff;padding:3px 13px;border-radius:20px;font-size:.67rem;font-weight:700;z-index:70;pointer-events:none;opacity:0;transition:opacity .3s;display:flex;align-items:center;gap:7px;}#kbd-badge.show{opacity:1;}
+#cursor-hud{position:absolute;top:8px;left:8px;background:rgba(6,10,18,.9);border:var(--border);border-radius:8px;padding:7px 10px;font-family:'JetBrains Mono';font-size:.64rem;z-index:60;pointer-events:none;opacity:0;transition:opacity .25s;line-height:1.75;display:none;}#cursor-hud.show{opacity:1;}
+#toast{position:absolute;top:8px;left:50%;transform:translateX(-50%);background:rgba(15,23,42,.96);border:var(--border);color:#fff;padding:4px 14px;border-radius:20px;font-size:.73rem;pointer-events:none;opacity:0;transition:opacity .28s;z-index:5000;white-space:nowrap;}#toast.show{opacity:1;}
+#ctrl-info{position:absolute;bottom:64px;right:14px;font-size:.58rem;color:rgba(255,255,255,.35);pointer-events:none;z-index:50;line-height:1.9;text-align:right;}
 
-        .sidebar-content {
-            padding: 20px;
-            overflow-y: auto;
-            overflow-x: hidden;
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 24px;
-            padding-bottom: 100px;
-        }
+/* GOAL EDITOR */
+#goal-editor{position:fixed;background:rgba(6,10,18,.98);border:1px solid var(--success);padding:10px;border-radius:var(--r);display:none;flex-direction:column;gap:6px;z-index:3000;box-shadow:0 10px 40px rgba(0,0,0,.9);width:180px;}
+.ge-title{font-size:.62rem;color:var(--success);font-weight:700;text-transform:uppercase;letter-spacing:1px;}
 
-        /* Groupes de contrôles */
-        .param-section {
-            border-top: 1px solid rgba(255, 255, 255, 0.05);
-            padding-top: 16px;
-        }
+/* IMPORT OVERLAY */
+.overlay-panel{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(6,10,18,.99);border:var(--border);border-radius:14px;padding:20px;z-index:9999;min-width:340px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,.95);display:none;}
+.overlay-panel.open{display:block;}
+.import-drop{border:2px dashed rgba(0,212,255,.5);border-radius:10px;padding:24px;text-align:center;cursor:pointer;transition:all .2s;margin-top:10px;}
+.import-drop:hover,.import-drop.drag{border-color:var(--primary);background:rgba(0,212,255,.05);}
+.import-drop i{font-size:2rem;color:var(--muted);margin-bottom:8px;display:block;}
 
-        .param-title {
-            font-size: 0.7rem; text-transform: uppercase; color: var(--primary);
-            letter-spacing: 1.2px; margin-bottom: 12px; font-weight: 700;
-        }
+/* Speed zones */
+.speed-zones{display:flex;margin-top:2px;border-radius:2px;overflow:hidden;height:3px;}
+.sz-slow{flex:2;background:rgba(16,185,129,.4);}.sz-med{flex:3;background:rgba(245,158,11,.4);}.sz-fast{flex:5;background:rgba(244,63,94,.4);}
 
-        .control-group label {
-            display: flex; justify-content: space-between; align-items: center;
-            font-size: 0.85rem; margin-bottom: 8px; color: #cbd5e1; font-weight: 500;
-        }
-
-        .control-val { color: var(--primary); font-family: var(--font-code); font-size: 0.85rem; }
-
-        /* Inputs Range Customisés */
-        input[type="range"] {
-            -webkit-appearance: none; width: 100%; height: 4px;
-            background: rgba(255, 255, 255, 0.1); border-radius: 2px; outline: none;
-            transition: background 0.2s;
-        }
-        input[type="range"]:hover { background: rgba(255, 255, 255, 0.2); }
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none; width: 16px; height: 16px;
-            background: var(--text-main); border-radius: 50%; cursor: pointer;
-            box-shadow: 0 0 0 2px var(--bg-app); border: 1px solid var(--text-muted);
-            transition: transform 0.1s, box-shadow 0.2s;
-        }
-        input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.1); box-shadow: 0 0 0 4px var(--primary-glow); border-color: var(--primary); }
-        
-        /* Spécifique vitesse */
-        #inp-speed::-webkit-slider-thumb { background: var(--success); border-color: var(--success); }
-
-        /* Tooltips sidebar */
-        .sb-info { margin-left: 6px; color: var(--text-muted); cursor: help; font-size: 0.9em; position: relative; }
-        .sb-info:hover { color: var(--primary); }
-        .sb-tooltip {
-            visibility: hidden; position: absolute; top: 100%; left: 0; width: 220px;
-            background: #0f172a; border: 1px solid rgba(255,255,255,0.15);
-            color: var(--text-main); padding: 10px; border-radius: var(--radius-sm);
-            font-size: 0.75rem; font-weight: 400; line-height: 1.4; box-shadow: var(--shadow);
-            z-index: 99999; opacity: 0; transform: translateY(5px); transition: 0.2s; pointer-events: none;
-        }
-        .sb-info:hover .sb-tooltip { visibility: visible; opacity: 1; transform: translateY(5px); }
-
-        /* --- ZONE PRINCIPALE --- */
-        #main-area {
-            flex: 1; display: flex; flex-direction: column; position: relative;
-            height: 100%; overflow: visible; background: radial-gradient(circle at center, #131c2e 0%, #0b1121 100%);
-        }
-
-        /* Barre supérieure (Toolbar) */
-        .top-bar {
-            height: 56px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between;
-            padding: 0 20px; border-bottom: var(--border); background: var(--bg-glass);
-            backdrop-filter: blur(12px); z-index: 40;
-        }
-
-        .toggle-btn {
-            background: transparent; border: 1px solid rgba(255,255,255,0.1); color: var(--text-muted);
-            width: 36px; height: 36px; border-radius: var(--radius-sm); cursor: pointer;
-            display: grid; place-items: center; transition: all 0.2s;
-        }
-        .toggle-btn:hover { color: var(--text-main); border-color: rgba(255,255,255,0.3); background: rgba(255,255,255,0.05); }
-
-        /* Contrôles de lecture */
-        .playback {
-            display: flex; gap: 8px; background: rgba(0,0,0,0.3); padding: 4px 6px;
-            border-radius: var(--radius-md); border: var(--border);
-        }
-        .pb-btn {
-            width: 34px; height: 34px; border-radius: var(--radius-sm); border: none;
-            background: transparent; color: var(--text-muted); cursor: pointer;
-            font-size: 0.9rem; transition: all 0.2s; display: flex; align-items: center; justify-content: center;
-        }
-        .pb-btn:hover { background: rgba(255,255,255,0.1); color: white; }
-        .pb-btn.play { background: rgba(16, 185, 129, 0.15); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.3); }
-        .pb-btn.play:hover { background: var(--success); color: white; }
-        .pb-btn.play.running { background: rgba(239, 68, 68, 0.15); color: var(--danger); border-color: rgba(239, 68, 68, 0.3); }
-        .pb-btn.play.running:hover { background: var(--danger); color: white; }
-
-        /* --- HUD & STATS --- */
-        #hud-container {
-            background: var(--bg-panel); border-bottom: var(--border);
-            display: flex; flex-direction: column; flex-shrink: 0;
-            position: relative; z-index: 30; transition: all 0.3s ease;
-        }
-
-        .hud-stats-bar {
-            display: grid; grid-template-columns: repeat(6, 1fr) auto;
-            align-items: center; padding: 10px 20px; background: rgba(0,0,0,0.2);
-            font-size: 0.8rem; gap: 15px;
-        }
-
-        .stat-item { display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.2; }
-        .stat-label { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }
-        .stat-val { font-family: var(--font-code); font-weight: 700; color: white; font-size: 0.9rem; }
-        .stat-val.green { color: var(--success); }
-
-        .hud-graph-area {
-            height: 180px; padding: 10px 20px; transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
-            overflow: hidden; display: flex; flex-direction: column;
-        }
-        #hud-container.collapsed .hud-graph-area { height: 0; padding: 0; opacity: 0; }
-
-        .graph-header {
-            display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;
-            padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.05);
-        }
-        .graph-nav-btn {
-            background: rgba(255,255,255,0.05); border: none; color: white; width: 24px; height: 24px;
-            border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center;
-        }
-        .graph-nav-btn:hover { background: var(--primary); }
-
-        /* --- VISUALISATION MATHEMATIQUE (Bellman) --- */
-        #math-display {
-            position: absolute; bottom: 60px; /* Ajusté pour éviter overlap toolbar */
-            background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(8px);
-            padding: 8px 16px; border-radius: var(--radius-md);
-            font-family: var(--font-code); font-size: 0.7rem; color: var(--text-main);
-            border: var(--border); border-left: 2px solid var(--primary);
-            box-shadow: var(--shadow); z-index: 3000;
-            opacity: 0; transition: opacity 0.3s, transform 0.3s; transform: translateY(10px);
-            pointer-events: none; /* Interactif seulement si visible */
-        }
-        #math-display.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
-        
-        .math-tooltip {
-            visibility: hidden; position: absolute; bottom: 100%; left: 0; margin-bottom: 10px;
-            width: 300px; background: var(--bg-panel); border: 1px solid var(--primary);
-            padding: 12px; border-radius: var(--radius-md); box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-            font-family: var(--font-ui); font-size: 0.75rem; color: #e2e8f0; opacity: 0;
-            transform: translateY(5px); transition: all 0.2s ease; z-index: 4000; pointer-events: none;
-        }
-        #math-display:hover .math-tooltip { visibility: visible; opacity: 1; transform: translateY(0); }
-        
-        .mt-row { display: flex; justify-content: space-between; margin-bottom: 4px; padding-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .mt-key { font-weight: 600; }
-        .mt-desc { color: var(--text-muted); font-size: 0.7rem; margin-top: 2px; font-style: italic; }
-
-        /* --- SLIDERS TACTILES --- */
-        .touch-strip {
-            display: flex; gap: 12px; padding: 10px 20px; height: 50px; flex-shrink: 0;
-            justify-content: center; align-items: center; z-index: 20;
-        }
-        .touch-slider-container {
-            flex: 1; height: 100%; background: rgba(0,0,0,0.3); border-radius: var(--radius-md);
-            position: relative; overflow: hidden; border: var(--border); touch-action: none; cursor: ew-resize;
-        }
-        .ts-fill {
-            position: absolute; top: 0; left: 0; height: 100%; background: var(--primary);
-            opacity: 0.3; transition: width 0.05s linear; pointer-events: none;
-        }
-        .ts-label {
-            position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
-            font-size: 0.7rem; font-weight: 700; color: white; text-shadow: 0 1px 2px black; pointer-events: none;
-        }
-        .ts-val-disp { font-family: var(--font-code); font-size: 0.9em; margin-top: 2px; opacity: 0.9; }
-        
-        /* Couleurs spécifiques sliders */
-        #ts-speed .ts-fill { background: var(--success); }
-        #ts-epsilon .ts-fill { background: var(--warning); }
-        #ts-alpha .ts-fill { background: #ec4899; } /* Pink */
-        #ts-gamma .ts-fill { background: var(--primary); }
-
-        /* --- GRID STAGE --- */
-        #sim-stage {
-            flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-            position: relative; overflow: hidden; padding: 20px; width: 100%;
-        }
-
-        #grid {
-            display: grid; gap: 1px; padding: 4px;
-            background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1);
-            border-radius: var(--radius-lg); box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            touch-action: none;
-            width: 100%; max-width: 60vh; aspect-ratio: 1 / 1; /* Carré parfait */
-            position: relative; cursor: crosshair;
-        }
-
-        .cell {
-            background: rgba(30, 41, 59, 0.5); border-radius: 2px; position: relative;
-            overflow: hidden; display: flex; justify-content: center; align-items: center;
-            transition: background 0.1s;
-        }
-
-        /* Types de cellules */
-        .cell.obstacle {
-            background: repeating-linear-gradient(45deg, #1e293b, #1e293b 5px, #334155 5px, #334155 10px);
-            box-shadow: inset 0 0 10px black; border: 1px solid rgba(255,255,255,0.05);
-        }
-        .cell.goal { background: rgba(16, 185, 129, 0.1); }
-        .cell.goal::after {
-            content: ''; position: absolute; width: 50%; height: 50%;
-            background: var(--success); border-radius: 50%;
-            box-shadow: 0 0 15px var(--success); animation: pulse 2s infinite;
-        }
-        .cell.start { border: 2px dashed var(--info); background: rgba(59, 130, 246, 0.1); }
-        .cell.mud { background: #451a03; border: 2px solid #78350f; opacity: 0.9; }
-        .cell.ice { background: rgba(6, 182, 212, 0.15); border: 1px solid rgba(6, 182, 212, 0.4); }
-        .cell.portal { background: rgba(139, 92, 246, 0.2); }
-        .cell.portal::after {
-            content: ''; position: absolute; width: 60%; height: 60%;
-            border: 2px solid #a78bfa; border-radius: 50%;
-            animation: spin 4s linear infinite;
-        }
-
-        /* Agent */
-        #agent {
-            position: absolute; z-index: 100;
-            background: white; border: 2px solid var(--primary);
-            border-radius: 50%; box-shadow: 0 0 20px var(--primary);
-            pointer-events: none; transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        /* Canvas Path */
-        #path-canvas {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none; z-index: 90; opacity: 0.8;
-        }
-
-        /* Visualisation Q-Values (Overlay) */
-        .q-ov {
-            position: absolute; inset: 0; pointer-events: none;
-            display: grid; grid-template: 1fr 1fr 1fr / 1fr 1fr 1fr;
-        }
-        .qv { display: flex; align-items: center; justify-content: center; font-size: 8px; font-family: var(--font-code); color: rgba(255,255,255,0.6); }
-        .qv.u { grid-area: 1/2/2/3; } .qv.d { grid-area: 3/2/4/3; }
-        .qv.l { grid-area: 2/1/3/2; } .qv.r { grid-area: 2/3/3/4; }
-        .policy-arrow { position: absolute; color: rgba(255,255,255,0.7); font-size: 12px; }
-
-        /* --- TOOLBAR FLOTTANTE --- */
-        .toolbar {
-            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-            background: var(--bg-panel); padding: 4px 6px; border-radius: 50px;
-            border: var(--border-active); display: flex; gap: 8px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5); z-index: 60;
-        }
-        
-        .tool-btn {
-            background: transparent; border: none; color: var(--text-muted);
-            width: 40px; height: 40px; border-radius: 50%; cursor: pointer;
-            font-size: 1.1rem; transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-        .tool-btn:hover { color: white; transform: scale(1.1); }
-        .tool-btn.active { background: var(--primary); color: white; box-shadow: 0 0 15px var(--primary-glow); }
-        
-        .sep { width: 1px; background: rgba(255,255,255,0.1); margin: 4px 2px; }
-
-        /* --- POPUPS & EDITOR --- */
-        #goal-editor {
-            position: fixed; background: rgba(15, 23, 42, 0.98);
-            border: 1px solid var(--success); padding: 12px; border-radius: var(--radius-md);
-            display: none; flex-direction: column; gap: 8px; z-index: 2000;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.8); backdrop-filter: blur(5px); width: 180px;
-        }
-        #goal-editor label { font-size: 0.7rem; color: var(--success); font-weight: 700; display: flex; justify-content: space-between; }
-        
-        #toast {
-            position: absolute; bottom: 90px; left: 50%; transform: translateX(-50%);
-            background: var(--bg-panel); border: 1px solid var(--primary);
-            color: white; padding: 8px 16px; border-radius: 30px;
-            font-size: 0.85rem; pointer-events: none; opacity: 0;
-            transition: opacity 0.3s; z-index: 50000; box-shadow: 0 5px 20px rgba(0,0,0,0.5);
-            font-weight: 500; white-space: nowrap; display: flex; gap: 8px; align-items: center;
-        }
-        #toast.visible { opacity: 1; }
-
-        /* Animations */
-        @keyframes pulse { 0% { transform: scale(1); opacity: 0.8; } 50% { transform: scale(1.1); opacity: 1; } 100% { transform: scale(1); opacity: 0.8; } }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
-
-        /* --- RESPONSIVE MOBILE --- */
-        @media (max-width: 900px) {
-            body { flex-direction: column; }
-            #main-area { order: 1; flex: 1; }
-            #sim-stage { padding-bottom: 80px; } /* Espace pour toolbar */
-            
-            #sidebar {
-                order: 2; width: 100%; height: 50vh; position: absolute; bottom: 0;
-                transform: translateY(0); margin-right: 0; border-right: none;
-                border-top: 2px solid var(--primary); box-shadow: 0 -10px 40px rgba(0,0,0,0.7);
-            }
-            #sidebar.collapsed { transform: translateY(100%); margin-bottom: 0; }
-            
-            .hud-stats-bar { grid-template-columns: repeat(3, 1fr); font-size: 0.7rem; gap: 8px; }
-            .graph-toggle { grid-column: span 3; justify-self: center; width: 100%; }
-        }
-    </style>
+@media(max-width:860px){.topbar{padding:0 8px;}.mode-btn{padding:3px 8px;}.pb-btn{width:24px;height:24px;}}
+</style>
 </head>
-
 <body>
-
-    <aside id="sidebar">
-        <div class="sidebar-header">
-            <div class="logo">
-                <i class="fas fa-network-wired" style="color:var(--primary)"></i> 
-                Q-LAB-2D <span class="version-tag">V11</span>
-            </div>
-            <button class="toggle-btn" onclick="app.ui.toggleSidebar()" aria-label="Fermer le menu">
-                <i class="fas fa-times"></i>
-            </button>
+<div class="sb-backdrop" id="sb-backdrop" onclick="App.ui.toggleSidebar()"></div>
+<aside id="sidebar">
+  <div class="sb-head">
+    <div class="logo"><i class="fas fa-brain" style="color:var(--primary)"></i>Q-LAB <span class="badge b2d" id="mode-badge">2D</span></div>
+    <button class="icon-btn" onclick="App.ui.toggleSidebar()"><i class="fa fa-times"></i></button>
+  </div>
+  <div class="sb-body">
+    <!-- Speed -->
+    <div class="cg" style="padding:2px 2px 0">
+      <div class="cg-lbl"><span>Vitesse</span><span class="cg-val" id="txt-speed">10/s</span></div>
+      <input type="range" id="inp-speed" min="1" max="200" value="40" oninput="App.cfg.update(this)">
+      <div class="speed-zones"><div class="sz-slow"></div><div class="sz-med"></div><div class="sz-fast"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:.48rem;color:var(--muted);margin-top:1px;"><span>1/s</span><span>60/s</span><span>2000/s</span></div>
+    </div>
+    <!-- Hyperparams -->
+    <div class="acc open" id="acc-hyp">
+      <div class="acc-h" onclick="App.ui.toggleAcc('acc-hyp')"><span>Hyperparamètres</span><i class="fa fa-chevron-down chev"></i></div>
+      <div class="acc-b">
+        <div class="cg"><div class="cg-lbl"><span>ε Exploration</span><span class="cg-val" id="txt-epsilon">0.10</span></div><input type="range" id="inp-epsilon" min="0" max="1" step="0.01" value="0.1" oninput="App.cfg.update(this)"></div>
+        <div class="cg"><div class="cg-lbl"><span>α Apprentissage</span><span class="cg-val" id="txt-alpha">0.10</span></div><input type="range" id="inp-alpha" min="0" max="1" step="0.01" value="0.1" oninput="App.cfg.update(this)"></div>
+        <div class="cg"><div class="cg-lbl"><span>γ Discount</span><span class="cg-val" id="txt-gamma">0.90</span></div><input type="range" id="inp-gamma" min="0" max="1" step="0.01" value="0.9" oninput="App.cfg.update(this)"></div>
+        <div class="cg"><div class="cg-lbl"><span>ε Décroissance</span><span class="cg-val" id="txt-decay">1.00</span></div><input type="range" id="inp-decay" min="0.90" max="1.0" step="0.001" value="1.0" oninput="App.cfg.update(this)"></div>
+      </div>
+    </div>
+    <!-- Rewards -->
+    <div class="acc" id="acc-rew">
+      <div class="acc-h" onclick="App.ui.toggleAcc('acc-rew')"><span>Récompenses</span><i class="fa fa-chevron-down chev"></i></div>
+      <div class="acc-b">
+        <div class="cg"><div class="cg-lbl"><span>Max Pas/Ep.</span><span class="cg-val" id="txt-maxsteps">200</span></div><input type="range" id="inp-maxsteps" min="10" max="2000" step="10" value="800" oninput="App.cfg.update(this)"></div>
+        <div class="cg"><div class="cg-lbl"><span>Pénalité vie</span><span class="cg-val" id="txt-living">-1</span></div><input type="range" id="inp-living" min="-10" max="0" step="1" value="-1" oninput="App.cfg.update(this)"></div>
+        <div class="cg"><div class="cg-lbl"><span>Pénalité mur</span><span class="cg-val" id="txt-wallpen">-5</span></div><input type="range" id="inp-wallpen" min="-50" max="0" step="5" value="-5" oninput="App.cfg.update(this)"></div>
+        <div class="cg"><div class="cg-lbl"><span>Récompense but</span><span class="cg-val" id="txt-goalrw">100</span></div><input type="range" id="inp-goalrw" min="10" max="1000" step="10" value="100" oninput="App.cfg.update(this)"></div>
+      </div>
+    </div>
+    <!-- Goals Manager (2D/3D only) -->
+    <div class="acc open" id="acc-goals">
+      <div class="acc-h" onclick="App.ui.toggleAcc('acc-goals')"><span>🎯 Buts (Goals)</span><i class="fa fa-chevron-down chev"></i></div>
+      <div class="acc-b">
+        <div style="font-size:.62rem;color:var(--muted);margin-top:4px;">Clic droit sur la grille (outil Goal/Vue) ou placez un goal puis éditez ci-dessous.</div>
+        <div class="goals-list" id="goals-list"></div>
+        <button class="sb-btn pri" style="width:100%;margin-top:6px;" onclick="App.goalMgr.addDefault()"><i class="fa fa-plus"></i> Ajouter un goal</button>
+      </div>
+    </div>
+    <!-- Grid & UI -->
+    <div class="acc" id="acc-grid">
+      <div class="acc-h" onclick="App.ui.toggleAcc('acc-grid')"><span>Grille & Interface</span><i class="fa fa-chevron-down chev"></i></div>
+      <div class="acc-b">
+        <div id="wrap-2d" class="cg"><div class="cg-lbl"><span>Taille 2D</span><span class="cg-val" id="txt-size2d">20×20</span></div><input type="range" id="inp-size2d" min="4" max="60" value="20" oninput="App.mode2d.resizeDebounced(this.value)"></div>
+        <div id="wrap-3d" class="cg" style="display:none"><div class="cg-lbl"><span>Taille 3D</span><span class="cg-val" id="txt-size3d">6×6×6</span></div><input type="range" id="inp-size3d" min="3" max="12" value="6" oninput="App.mode3d.resizeDebounced(this.value)"></div>
         </div>
-        
-        <div class="sidebar-content">
-            <div class="control-group">
-                <label>
-                    <div style="display:flex;align-items:center;">
-                        <span><i class="fas fa-bolt" style="color:var(--warning); margin-right:6px;"></i> Vitesse Simulation</span>
-                    </div>
-                    <span class="control-val" id="txt-speed">50ms</span>
-                </label>
-                <input type="range" id="inp-speed" min="0" max="100" value="60" oninput="app.config.updateFromInput(this)">
-            </div>
-
-            <div class="param-section">
-                <div class="param-title">Cerveau de l'Agent</div>
-                
-                <div class="control-group">
-                    <label>
-                        <div>
-                            <span>Exploration (ε)</span>
-                            <i class="fas fa-question-circle sb-info"><div class="sb-tooltip">Probabilité d'agir au hasard. 1.0 = Chaos, 0.0 = Robot strict.</div></i>
-                        </div>
-                        <span class="control-val" id="txt-epsilon">0.1</span>
-                    </label>
-                    <input type="range" id="inp-epsilon" min="0" max="1" step="0.01" value="0.1" oninput="app.config.updateFromInput(this)">
-                </div>
-
-                <div class="control-group">
-                    <label>
-                        <div>
-                            <span>Apprentissage (α)</span>
-                            <i class="fas fa-question-circle sb-info"><div class="sb-tooltip">Vitesse d'intégration des nouvelles informations.</div></i>
-                        </div>
-                        <span class="control-val" id="txt-alpha">0.1</span>
-                    </label>
-                    <input type="range" id="inp-alpha" min="0" max="1" step="0.01" value="0.1" oninput="app.config.updateFromInput(this)">
-                </div>
-
-                <div class="control-group">
-                    <label>
-                        <div>
-                            <span>Vision Futur (γ)</span>
-                            <i class="fas fa-question-circle sb-info"><div class="sb-tooltip">Importance des récompenses futures. 0 = Impulsif, 1 = Stratège.</div></i>
-                        </div>
-                        <span class="control-val" id="txt-gamma">0.9</span>
-                    </label>
-                    <input type="range" id="inp-gamma" min="0" max="1" step="0.01" value="0.9" oninput="app.config.updateFromInput(this)">
-                </div>
-                
-                <div class="control-group">
-                    <label>
-                        <div>
-                            <span>Décroissance ε</span>
-                            <i class="fas fa-question-circle sb-info"><div class="sb-tooltip">Réduction automatique de l'exploration à chaque épisode.</div></i>
-                        </div>
-                        <span class="control-val" id="txt-decay">1.0</span>
-                    </label>
-                    <input type="range" id="inp-decay" min="0.90" max="1.0" step="0.001" value="1.0" oninput="app.config.updateFromInput(this)">
-                </div>
-            </div>
-
-            <div class="param-section">
-                <div class="param-title">Environnement & Règles</div>
-                
-                <div class="control-group">
-                    <label>Max Pas / Épisode <span class="control-val" id="txt-maxsteps">100</span></label>
-                    <input type="range" id="inp-maxsteps" min="10" max="500" step="10" value="100" oninput="app.config.updateFromInput(this)">
-                </div>
-                
-                <div class="control-group">
-                    <label>Coût de Vie (Energie) <span class="control-val" id="txt-living">-1</span></label>
-                    <input type="range" id="inp-living" min="-10" max="0" step="1" value="-1" oninput="app.config.updateFromInput(this)">
-                </div>
-
-                <div class="control-group">
-                    <label>Pénalité Mur <span class="control-val" id="txt-wallpen">-5</span></label>
-                    <input type="range" id="inp-wallpen" min="-50" max="0" step="5" value="-5" oninput="app.config.updateFromInput(this)">
-                </div>
-            </div>
-
-            <div class="param-section">
-                <div class="control-group">
-                    <label>Taille Grille <span class="control-val" id="txt-size">10x10</span></label>
-                    <input type="range" min="4" max="50" value="10" onchange="app.core.resize(this.value)">
-                </div>
-                
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:15px;">
-                    <button class="toggle-btn" style="width:100%; gap:8px;" onclick="app.io.export()">
-                        <i class="fas fa-download"></i> Save
-                    </button>
-                    <button class="toggle-btn" style="width:100%; gap:8px;" onclick="document.getElementById('file-imp').click()">
-                        <i class="fas fa-upload"></i> Load
-                    </button>
-                    <input type="file" id="file-imp" hidden onchange="app.io.import(this)">
-                </div>
-            </div>
+      </div>
+      </div>
+    </div>
+    <!-- Generation -->
+    <div class="acc" id="acc-gen">
+      <div class="acc-h" onclick="App.ui.toggleAcc('acc-gen')"><span>Génération</span><i class="fa fa-chevron-down chev"></i></div>
+      <div class="acc-b">
+        <div id="shape-section" style="display:none">
+          <div class="gen-row"><span class="gen-lbl">Type 3D</span>
+            <select id="gen-shape-type" style="flex:1"><option value="random">Libre</option><option value="blob">Blob</option><option value="tunnel">Tunnel</option><option value="layers">Couches</option></select>
+          </div>
+          <div class="gen-row"><span class="gen-lbl">Densité</span><input type="range" id="gen-density" min="10" max="95" value="60" style="flex:1" oninput="document.getElementById('gv-density').textContent=this.value+'%'"><span class="gen-val" id="gv-density">60%</span></div>
+          <button class="sb-btn" onclick="App.mode3d.generateShape()" style="width:100%;margin-top:6px;"><i class="fa fa-shapes"></i> Générer forme 3D</button>
+          <div style="border-top:var(--border);margin:8px 0;"></div>
         </div>
-    </aside>
-
-    <section id="main-area">
-        
-        <div class="top-bar">
-            <button class="toggle-btn" onclick="app.ui.toggleSidebar()" title="Paramètres"><i class="fas fa-sliders-h"></i></button>
-            
-            <div class="playback">
-                <button class="pb-btn" onclick="app.core.reset(false)" title="Reset Position"><i class="fas fa-backward"></i></button>
-                <button id="btn-play" class="pb-btn play" onclick="app.core.toggleRun()" title="Démarrer/Pause"><i class="fas fa-play"></i></button>
-                <button class="pb-btn" onclick="app.core.step()" title="Pas à pas"><i class="fas fa-step-forward"></i></button>
-                <div style="width:1px; background:rgba(255,255,255,0.2); margin:0 5px;"></div>
-                <button class="pb-btn" onclick="app.core.resetLearning()" title="Reset Cerveau"><i class="fas fa-brain"></i></button>
-                <button class="pb-btn" onclick="app.core.fullReset()" title="Reset Total"><i class="fas fa-trash-alt"></i></button>
-            </div>
-            
-            <div style="width:36px;"></div> </div>
-
-        <div id="hud-container">
-            <div class="hud-stats-bar">
-                <div class="stat-item"><span class="stat-label">Épisodes</span><span class="stat-val" id="val-ep">0</span></div>
-                <div class="stat-item"><span class="stat-label">Pas Actuel</span><span class="stat-val" id="val-steps">0</span></div>
-                <div class="stat-item"><span class="stat-label">Moy. Pas</span><span class="stat-val" id="val-avg-steps">0</span></div>
-                <div class="stat-item"><span class="stat-label">Succès</span><span class="stat-val green" id="val-success">0%</span></div>
-                <div class="stat-item"><span class="stat-label">Score</span><span class="stat-val" id="val-reward">0</span></div>
-                <div class="stat-item"><span class="stat-label">Moy. Score</span><span class="stat-val" id="val-avg-reward">0</span></div>
-                
-                <button class="graph-toggle toggle-btn" style="width:auto; padding:0 10px;" onclick="app.ui.toggleGraph()">
-                    <i class="fas fa-chart-line"></i>
-                </button>
-            </div>
-            
-            <div class="hud-graph-area">
-                <div class="graph-header">
-                    <div class="graph-title" style="display:flex; align-items:center; gap:10px;">
-                        <button class="graph-nav-btn" onclick="app.chart.prevMetric()"><i class="fas fa-chevron-left"></i></button>
-                        <span id="lbl-metric" style="font-weight:700; color:var(--text-main);">Score</span>
-                        <button class="graph-nav-btn" onclick="app.chart.nextMetric()"><i class="fas fa-chevron-right"></i></button>
-                    </div>
-                    <div style="display:flex; gap:10px; align-items:center;">
-                        <span style="font-size:0.7rem; color:var(--text-muted);">Lissage</span>
-                        <input type="range" min="1" max="50" value="1" style="width:60px;" oninput="app.chart.updateSmoothing(this.value)">
-                    </div>
-                </div>
-                <div style="flex:1; position:relative; min-height:0;"><canvas id="chart"></canvas></div>
-            </div>
+        <div id="gen-2d3d-section">
+          <div class="gen-row"><span class="gen-lbl">Murs</span><input type="range" id="gen-walls" min="0" max="60" value="20" style="flex:1" oninput="document.getElementById('gv-walls').textContent=this.value+'%'"><span class="gen-val" id="gv-walls">20%</span></div>
+          <div class="gen-row"><span class="gen-lbl">Boue</span><input type="range" id="gen-mud" min="0" max="40" value="10" style="flex:1" oninput="document.getElementById('gv-mud').textContent=this.value+'%'"><span class="gen-val" id="gv-mud">10%</span></div>
+          <div class="gen-row"><span class="gen-lbl">Glace</span><input type="range" id="gen-ice" min="0" max="40" value="5" style="flex:1" oninput="document.getElementById('gv-ice').textContent=this.value+'%'"><span class="gen-val" id="gv-ice">5%</span></div>
+          <div class="gen-row"><span class="gen-lbl">Feu</span><input type="range" id="gen-fire" min="0" max="30" value="0" style="flex:1" oninput="document.getElementById('gv-fire').textContent=this.value+'%'"><span class="gen-val" id="gv-fire">0%</span></div>
+          <div class="gen-row"><span class="gen-lbl">Portails</span><input type="range" id="gen-portal" min="0" max="8" value="0" style="flex:1" oninput="document.getElementById('gv-portal').textContent=this.value"><span class="gen-val" id="gv-portal">0</span></div>
+          <button class="sb-btn pri" onclick="App.generateMaze()" style="width:100%;margin-top:7px;"><i class="fa fa-wand-magic-sparkles"></i> Générer obstacles</button>
         </div>
-
-        <div class="touch-strip">
-            <div class="touch-slider-container" id="ts-speed">
-                <div class="ts-fill" style="width: 60%;"></div>
-                <div class="ts-label">⚡ Vitesse <span class="ts-val-disp">60%</span></div>
-            </div>
-            <div class="touch-slider-container" id="ts-epsilon">
-                <div class="ts-fill" style="width: 10%;"></div>
-                <div class="ts-label">🎲 Epsilon <span class="ts-val-disp">0.10</span></div>
-            </div>
         </div>
+      </div>
+    </div>
+    <!-- Import/Export -->
+    <div class="btn-row">
+      <button class="sb-btn" id="btn-import-img" onclick="document.getElementById('import-panel').classList.add('open')"><i class="fa fa-image"></i> Import image</button>
+      <button class="sb-btn" onclick="App.io.doExport()"><i class="fa fa-download"></i> Export</button>
+    </div>
+    <div class="btn-row">
+      <button class="sb-btn pri" onclick="document.getElementById('json-file-input').click()"><i class="fa fa-upload"></i> Importer JSON</button>
+      <button class="sb-btn" onclick="document.getElementById('help-panel').classList.add('open')"><i class="fa fa-keyboard"></i> Aide</button>
+    </div>
+    <input type="file" id="json-file-input" accept=".json" style="display:none" onchange="App.io.doImport(this)">
+  </div>
+</aside>
 
-        <div id="sim-stage">
-            <div id="grid">
-                <canvas id="path-canvas"></canvas>
-                <div id="agent"></div>
-            </div>
+<section id="main">
+  <div class="topbar">
+    <div class="topbar-l">
+      <button class="icon-btn" onclick="App.ui.toggleSidebar()"><i class="fa fa-bars"></i></button>
+      <button class="lang-btn" id="lang-btn" onclick="App.toggleLang()">FR</button>
+    </div>
+    <div style="display:flex;gap:7px;align-items:center;">
+      <div class="mode-toggle">
+        <button class="mode-btn active" id="btn-2d" onclick="App.setMode('2d')">2D</button>
+        <button class="mode-btn" id="btn-3d" onclick="App.setMode('3d')">3D</button>
+      </div>
+      <button class="topbar-btn active" id="btn-cubes" style="display:none" onclick="App.mode3d.toggleCubes()"><i class="fa fa-cube"></i> Cubes</button>
+      <button class="topbar-btn" id="btn-2d3d" style="display:flex" onclick="App.mode2d.toggle3DView()" title="Voir en 3D"><i class="fa fa-layer-group"></i> <span id="lbl-2d3d">3D View</span></button>
+      <button class="topbar-btn" id="btn-hide-q" onclick="App.toggleHideQ()" title="Cacher Q-colors"><i class="fa fa-eye-slash"></i> Q-colors</button>
+      <div class="playback">
+        <button class="pb-btn" onclick="App.core.reset()" title="Reset position"><i class="fa fa-backward-step"></i></button>
+        <button id="btn-play" class="pb-btn pb-play" onclick="App.core.toggleRun()"><i class="fa fa-play"></i></button>
+        <button class="pb-btn" onclick="App.core.doStep()"><i class="fa fa-forward-step"></i></button>
+        <div class="pb-sep"></div>
+        <button class="pb-btn" onclick="App.core.resetLearning()" title="Reset Q"><i class="fa fa-rotate-left"></i></button>
+        <button class="pb-btn" onclick="App.core.fullReset()" title="Reset tout"><i class="fa fa-trash-can"></i></button>
+      </div>
+    </div>
+    <div class="topbar-r">
+      <button class="icon-btn" onclick="App.ui.toggleGraph()"><i class="fa fa-chart-line"></i></button>
+    </div>
+  </div>
 
-            <div id="goal-editor">
-                <label>RÉCOMPENSE <span id="ge-val">100</span></label>
-                <input type="range" id="ge-slider" min="10" max="1000" step="10" oninput="app.tools.updateGoalValue(this.value)">
-            </div>
-
-            <div class="toolbar">
-                <button class="tool-btn active" id="t-view" onclick="app.tools.setTool('view')" title="Sélection / Info"><i class="fas fa-mouse-pointer"></i></button>
-                <button class="tool-btn" id="t-policy" onclick="app.ui.toggleViewMode('policy')" title="Vue Politique" style="color:#facc15"><i class="fas fa-compass"></i></button>
-                <button class="tool-btn" id="t-heatmap" onclick="app.ui.toggleViewMode('heatmap')" title="Vue Chaleur" style="color:#f87171"><i class="fas fa-fire"></i></button>
-                
-                <div class="sep"></div>
-                
-                <button class="tool-btn" id="t-wall" onclick="app.tools.setTool('wall')" title="Mur"><i class="fas fa-square"></i></button>
-                <button class="tool-btn" id="t-mud" onclick="app.tools.setTool('mud')" title="Boue (Ralentit)" style="color:#8d6e63"><i class="fas fa-water"></i></button>
-                <button class="tool-btn" id="t-ice" onclick="app.tools.setTool('ice')" title="Glace (Glisse)" style="color:#22d3ee"><i class="fas fa-snowflake"></i></button>
-                <button class="tool-btn" id="t-portal" onclick="app.tools.setTool('portal')" title="Portail" style="color:#c084fc"><i class="fas fa-dungeon"></i></button>
-                
-                <div class="sep"></div>
-                
-                <button class="tool-btn" id="t-goal" onclick="app.tools.setTool('goal')" title="Objectif"><i class="fas fa-bullseye"></i></button>
-                <button class="tool-btn" id="t-start" onclick="app.tools.setTool('start')" title="Départ"><i class="fas fa-flag"></i></button>
-                <button class="tool-btn" id="t-eraser" onclick="app.tools.setTool('eraser')" title="Gomme"><i class="fas fa-eraser"></i></button>
-            </div>
-            
-            <div id="math-display"></div>
-            <div id="toast"><i class="fas fa-info-circle"></i> <span>Ready</span></div>
+  <div id="hud">
+    <div class="hud-stats" onclick="document.getElementById('hud').classList.toggle('math-open')">
+      <div class="stat"><span class="stat-l">Épisodes</span><span class="stat-v sv-p" id="val-ep">0</span></div>
+      <div class="stat"><span class="stat-l">Pas</span><span class="stat-v" id="val-steps">0</span></div>
+      <div class="stat"><span class="stat-l">Moy.Pas</span><span class="stat-v" id="val-avg-steps">—</span></div>
+      <div class="stat"><span class="stat-l">Succès</span><span class="stat-v sv-g" id="val-success">0%</span></div>
+      <div class="stat"><span class="stat-l">Score</span><span class="stat-v sv-w" id="val-reward">0</span></div>
+      <div class="stat"><span class="stat-l">Moy.Score</span><span class="stat-v" id="val-avg-reward">—</span></div>
+      <div class="stat"><span class="stat-l">ε</span><span class="stat-v" id="val-eps-live">0.100</span></div>
+      <div class="stat" style="margin-left:auto;border-right:none;"><i class="fa fa-calculator" style="color:var(--muted);font-size:.8rem;"></i></div>
+    </div>
+    <div id="math-disp"></div>
+    <div class="hud-graph-wrap">
+      <div class="graph-bar">
+        <div style="display:flex;align-items:center;gap:5px;">
+          <button class="gnav-btn" onclick="App.chart.prev()"><i class="fa fa-chevron-left"></i></button>
+          <span id="lbl-metric" style="font-size:.73rem;font-weight:600;min-width:65px;text-align:center;">Score</span>
+          <button class="gnav-btn" onclick="App.chart.next()"><i class="fa fa-chevron-right"></i></button>
         </div>
-
-        <div class="touch-strip">
-            <div class="touch-slider-container" id="ts-alpha">
-                <div class="ts-fill" style="width: 10%;"></div>
-                <div class="ts-label">🧠 Alpha <span class="ts-val-disp">0.10</span></div>
-            </div>
-            <div class="touch-slider-container" id="ts-gamma">
-                <div class="ts-fill" style="width: 90%;"></div>
-                <div class="ts-label">🔮 Gamma <span class="ts-val-disp">0.90</span></div>
-            </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-size:.62rem;color:var(--muted)">Lissage</span>
+          <input type="range" min="1" max="50" value="5" style="width:50px;" oninput="App.chart.setSmooth(this.value)">
         </div>
-
-    </section>
-
-    <script>
-        /**
-         * Namespace principal de l'application Q-Lab.
-         * Structure modulaire pour une maintenance aisée.
-         */
-        const app = {
-            // Configuration par défaut et état global
-            config: {
-                size: 10, epsilon: 0.1, alpha: 0.1, gamma: 0.9, epsilonDecay: 1.0,
-                maxSteps: 100, livingPenalty: -1, wallPenalty: -5, goalReward: 100,
-                delay: 50, turboSteps: 1, isTurbo: false,
-                
-                /** Met à jour la configuration depuis les inputs DOM */
-                updateFromInput(el) {
-                    const id = el.id;
-                    const valStr = el.value;
-                    let val = parseFloat(valStr);
-
-                    // Logique spécifique vitesse/turbo
-                    if (id === 'inp-speed') {
-                        const intVal = parseInt(valStr);
-                        if (intVal > 85) {
-                            app.config.isTurbo = true;
-                            app.config.turboSteps = Math.floor(Math.pow((intVal - 85), 1.5) * 2);
-                            document.getElementById('txt-speed').innerText = `TURBO x${app.config.turboSteps}`;
-                        } else {
-                            app.config.isTurbo = false;
-                            const inv = 85 - intVal;
-                            app.config.delay = Math.floor(Math.pow(inv, 1.5));
-                            document.getElementById('txt-speed').innerText = app.config.delay + "ms";
-                        }
-                        app.ui.updateTactile('speed', intVal);
-                        return;
-                    }
-
-                    // Mapping des paramètres
-                    const map = {
-                        'inp-epsilon': 'epsilon', 'inp-alpha': 'alpha', 'inp-gamma': 'gamma', 'inp-decay': 'epsilonDecay',
-                        'inp-maxsteps': 'maxSteps', 'inp-living': 'livingPenalty', 'inp-wallpen': 'wallPenalty'
-                    };
-
-                    if (map[id]) {
-                        app.config[map[id]] = val;
-                        const labelId = id.replace('inp-', 'txt-');
-                        document.getElementById(labelId).innerText = val;
-                        app.ui.updateTactile(map[id], val);
-                    }
-                }
-            },
-
-            // État de la simulation
-            state: {
-                q: {}, // Table Q { "x,y": [u,r,d,l] }
-                obstacles: new Set(), goals: new Map(), mud: new Set(), ice: new Set(), portals: new Set(),
-                start: { x: 0, y: 9 }, pos: { x: 0, y: 9 }, lastAction: null,
-                episode: 0, steps: 0, reward: 0, wins: 0, running: false, 
-                history: [], visits: {},
-                tool: 'view', viewMode: 'q' // 'q', 'policy', 'heatmap'
-            },
-
-            /**
-             * Initialisation de l'application.
-             * Setup des événements et du rendu initial.
-             */
-            init() {
-                this.core.resize(10);
-                this.chart.init();
-                this.ui.setupTouchSliders();
-                
-                // Raccourcis clavier
-                document.addEventListener('keydown', e => { if (e.code === 'Space') app.core.toggleRun(); });
-                
-                // Gestion de la peinture sur la grille (Mouse & Touch)
-                window.addEventListener('mouseup', () => app.ui.isPainting = false);
-                window.addEventListener('touchend', () => app.ui.isPainting = false);
-                window.addEventListener('resize', () => app.ui.updatePathCanvas());
-
-                // Fermeture des popups au clic extérieur
-                document.addEventListener('mousedown', (e) => {
-                    if (!e.target.closest('#grid') && !e.target.closest('#goal-editor')) app.tools.closeGoalEditor();
-                });
-                
-                // Init des valeurs UI
-                document.querySelectorAll('input[type="range"]').forEach(i => app.config.updateFromInput(i));
-            },
-
-            // --- MODULE CORE : Logique algorithmique ---
-            core: {
-                timer: null,
-                animationId: null,
-
-                /** Redimensionne la grille et reset tout */
-                resize(n) {
-                    n = parseInt(n);
-                    app.config.size = n;
-                    document.getElementById('txt-size').innerText = `${n}x${n}`;
-                    
-                    app.state.q = {};
-                    app.state.obstacles.clear(); app.state.goals.clear();
-                    app.state.mud.clear(); app.state.ice.clear(); app.state.portals.clear();
-                    app.state.visits = {};
-                    
-                    // Setup par défaut : Start en bas à gauche, Goal en haut à droite (adapté à la taille)
-                    app.state.start = { x: 0, y: n - 1 };
-                    app.state.goals.set(`${n - 1},0`, app.config.goalReward);
-                    
-                    app.ui.renderGrid();
-                    this.fullReset();
-                },
-
-                /** Effectue une étape de simulation (Logique + Mise à jour partielle) */
-                step() {
-                    if (!app.state.running) return;
-
-                    if (app.config.isTurbo) {
-                        // Mode Turbo : Calculs en boucle sans rendu intermédiaire
-                        for (let i = 0; i < app.config.turboSteps; i++) {
-                            if (this.logicStep()) break; // Fin d'épisode
-                        }
-                        app.ui.moveAgentVisual();
-                        app.ui.updateStats();
-                        this.animationId = requestAnimationFrame(() => this.step());
-                    } else {
-                        // Mode Normal : Rendu à chaque pas
-                        this.logicStep();
-                        app.ui.updateSingleCellQ(app.state.pos.x, app.state.pos.y);
-                        app.ui.moveAgentVisual();
-                        app.ui.updateStats();
-                        this.timer = setTimeout(() => this.step(), app.config.delay);
-                    }
-                },
-
-                /** Cœur de l'algorithme : Déplacement, Récompense, Mise à jour Q */
-                logicStep() {
-                    const { x, y } = app.state.pos;
-                    const k = `${x},${y}`;
-
-                    // Tracking visites
-                    app.state.visits[k] = (app.state.visits[k] || 0) + 1;
-                    if (!app.config.isTurbo) {
-                        const cell = document.getElementById(`c-${x}-${y}`);
-                        if (cell) cell.classList.add('visited');
-                    }
-
-                    // 1. Choix Action (Epsilon-Greedy)
-                    let action = this.chooseAction(k);
-
-                    // 2. Physique Environnementale
-                    // Glace : probabilité de glisser (continuer même direction)
-                    if (app.state.ice.has(k) && app.state.lastAction !== null) {
-                        if (Math.random() < 0.8) action = app.state.lastAction;
-                    }
-                    app.state.lastAction = action;
-
-                    // Calcul nouvelle position candidate
-                    let nx = x, ny = y;
-                    if (action === 0) ny--;      // Haut
-                    else if (action === 1) nx++; // Droite
-                    else if (action === 2) ny++; // Bas
-                    else if (action === 3) nx--; // Gauche
-
-                    // Détection Collision
-                    let hit = false;
-                    if (nx < 0 || ny < 0 || nx >= app.config.size || ny >= app.config.size || app.state.obstacles.has(`${nx},${ny}`)) {
-                        hit = true;
-                    }
-
-                    let nk = hit ? k : `${nx},${ny}`;
-
-                    // Logique Portail (Téléportation)
-                    if (!hit && app.state.portals.has(nk)) {
-                        const portals = Array.from(app.state.portals).filter(p => p !== nk);
-                        if (portals.length > 0) {
-                            const dest = portals[Math.floor(Math.random() * portals.length)];
-                            const [px, py] = dest.split(',').map(Number);
-                            nx = px; ny = py;
-                            nk = dest;
-                        }
-                    }
-
-                    // 3. Calcul Récompense (Reward)
-                    let r = app.config.livingPenalty;
-                    let done = false;
-
-                    if (app.state.goals.has(nk)) {
-                        r = app.state.goals.get(nk);
-                        done = true;
-                    } else if (hit) {
-                        r = app.config.wallPenalty;
-                    } else if (app.state.mud.has(nk)) {
-                        r = app.config.livingPenalty * 3; // Boue coûte plus cher
-                    }
-
-                    // 4. Mise à jour Q-Value (Bellman Equation)
-                    // Q(s,a) = Q(s,a) + alpha * [R + gamma * max(Q(s',a')) - Q(s,a)]
-                    if (!app.state.q[k]) app.state.q[k] = [0,0,0,0]; // Init safe
-                    if (!app.state.q[nk]) app.state.q[nk] = [0,0,0,0];
-
-                    const oldQ = app.state.q[k][action];
-                    const maxNext = Math.max(...app.state.q[nk]);
-                    const newVal = oldQ + app.config.alpha * (r + app.config.gamma * maxNext - oldQ);
-                    
-                    app.state.q[k][action] = newVal;
-
-                    // Affichage Mathématique (si lent)
-                    if (!app.config.isTurbo) app.ui.showMath(oldQ, r, maxNext, newVal);
-
-                    // Appliquer mouvement
-                    if (!hit) app.state.pos = { x: nx, y: ny };
-                    
-                    app.state.steps++;
-                    app.state.reward += r;
-
-                    // Vérification fin d'épisode
-                    if (done || app.state.steps >= app.config.maxSteps) {
-                        if (done) app.state.wins++;
-                        this.endEpisode(done);
-                        return true; // Stop pour ce cycle
-                    }
-                    return false;
-                },
-
-                chooseAction(k) {
-                    // Si état inconnu, init
-                    if (!app.state.q[k]) app.state.q[k] = [0,0,0,0];
-                    
-                    // Exploration
-                    if (Math.random() < app.config.epsilon) return Math.floor(Math.random() * 4);
-                    
-                    // Exploitation (Argmax)
-                    const qs = app.state.q[k];
-                    const max = Math.max(...qs);
-                    // Gère les égalités en choisissant au hasard parmi les meilleurs
-                    const candidates = [];
-                    qs.forEach((v, i) => { if(v === max) candidates.push(i); });
-                    return candidates[Math.floor(Math.random() * candidates.length)];
-                },
-
-                endEpisode(success) {
-                    app.state.episode++;
-                    
-                    // Historisation
-                    app.state.history.push({ 
-                        ep: app.state.episode, 
-                        r: app.state.reward, 
-                        s: app.state.steps, 
-                        w: success ? 1 : 0 
-                    });
-
-                    // Mise à jour Graphique (Throttle en Turbo)
-                    if (!app.config.isTurbo || app.state.episode % 20 === 0) app.chart.update();
-
-                    // Décroissance Epsilon
-                    app.config.epsilon = Math.max(0.01, app.config.epsilon * app.config.epsilonDecay);
-                    document.getElementById('inp-epsilon').value = app.config.epsilon;
-                    app.ui.updateTactile('epsilon', app.config.epsilon);
-                    document.getElementById('txt-epsilon').innerText = app.config.epsilon.toFixed(3);
-
-                    // Reset pour prochain épisode
-                    app.state.pos = { ...app.state.start };
-                    app.state.steps = 0;
-                    app.state.reward = 0;
-                    app.state.lastAction = null;
-
-                    // Nettoyage visuel partiel
-                    if (!app.config.isTurbo) {
-                        document.querySelectorAll('.visited').forEach(c => c.classList.remove('visited'));
-                        app.ui.updateCellVisuals();
-                    } else if (app.state.episode % 20 === 0) {
-                        app.ui.updateCellVisuals(); // Refresh périodique en turbo
-                    }
-                    
-                    if (!app.config.isTurbo || app.state.episode % 50 === 0) app.ui.drawBestPath();
-                },
-
-                // Commandes de contrôle
-                toggleRun() {
-                    app.state.running = !app.state.running;
-                    const btn = document.getElementById('btn-play');
-                    if (app.state.running) {
-                        btn.innerHTML = '<i class="fas fa-pause"></i>';
-                        btn.classList.add('running');
-                        this.step();
-                    } else {
-                        btn.innerHTML = '<i class="fas fa-play"></i>';
-                        btn.classList.remove('running');
-                        cancelAnimationFrame(this.animationId);
-                        clearTimeout(this.timer);
-                    }
-                },
-                reset(hard) {
-                    app.state.pos = { ...app.state.start };
-                    app.state.steps = 0;
-                    app.state.reward = 0;
-                    app.state.lastAction = null;
-                    document.querySelectorAll('.visited').forEach(c => c.classList.remove('visited'));
-                    app.ui.moveAgentVisual();
-                    app.ui.updateStats();
-                    app.ui.drawBestPath();
-                },
-                resetLearning() {
-                    this.stop();
-                    app.state.episode = 0; app.state.wins = 0; app.state.history = [];
-                    app.state.q = {}; app.state.visits = {};
-                    // Reset config params visual only if needed
-                    app.config.epsilon = parseFloat(document.getElementById('inp-epsilon').value);
-                    app.chart.reset();
-                    this.reset();
-                    app.ui.updateCellVisuals();
-                },
-                fullReset() {
-                    this.stop();
-                    app.state.obstacles.clear(); app.state.goals.clear();
-                    app.state.mud.clear(); app.state.ice.clear(); app.state.portals.clear();
-                    const n = app.config.size;
-                    app.state.start = { x: 0, y: n - 1 };
-                    app.state.goals.set(`${n - 1},0`, app.config.goalReward);
-                    this.resetLearning();
-                    app.ui.renderGrid();
-                },
-                stop() {
-                    app.state.running = false;
-                    cancelAnimationFrame(this.animationId);
-                    clearTimeout(this.timer);
-                    document.getElementById('btn-play').innerHTML = '<i class="fas fa-play"></i>';
-                    document.getElementById('btn-play').classList.remove('running');
-                }
-            },
-
-            // --- MODULE UI : Rendu et Interactions ---
-            ui: {
-                isPainting: false,
-                pathCanvas: null,
-
-                renderGrid() {
-                    const grid = document.getElementById('grid');
-                    grid.innerHTML = '<canvas id="path-canvas"></canvas><div id="agent"></div>';
-                    grid.style.gridTemplateColumns = `repeat(${app.config.size}, 1fr)`;
-                    grid.style.gridTemplateRows = `repeat(${app.config.size}, 1fr)`;
-
-                    this.pathCanvas = document.getElementById('path-canvas');
-                    this.updatePathCanvasSize();
-
-                    // Event delegation & Painting logic
-                    const handler = (e) => {
-                        e.stopPropagation();
-                        // Fermer éditeur goal si clic ailleurs
-                        if(e.target.id !== 'ge-slider') app.tools.closeGoalEditor();
-                        
-                        this.isPainting = true;
-                        this.handlePaintEvent(e);
-                    };
-
-                    grid.onmousedown = handler;
-                    grid.ontouchstart = handler;
-                    grid.onmousemove = (e) => { if (this.isPainting) this.handlePaintEvent(e); };
-                    grid.ontouchmove = (e) => { if (this.isPainting) this.handlePaintEvent(e); };
-
-                    const frag = document.createDocumentFragment();
-                    for (let y = 0; y < app.config.size; y++) {
-                        for (let x = 0; x < app.config.size; x++) {
-                            const cell = document.createElement('div');
-                            cell.className = 'cell';
-                            cell.id = `c-${x}-${y}`;
-                            // Overlay Q-Values (uniquement si grille petite pour perf)
-                            if (app.config.size <= 20) {
-                                cell.innerHTML = `<div class="q-ov"><span class="qv u" id="q-${x}-${y}-0"></span><span class="qv r" id="q-${x}-${y}-1"></span><span class="qv d" id="q-${x}-${y}-2"></span><span class="qv l" id="q-${x}-${y}-3"></span></div>`;
-                            }
-                            frag.appendChild(cell);
-                            if (!app.state.q[`${x},${y}`]) app.state.q[`${x},${y}`] = [0,0,0,0];
-                        }
-                    }
-                    grid.appendChild(frag);
-                    this.updateCellVisuals();
-                    this.moveAgentVisual();
-                    this.drawBestPath();
-                },
-
-                handlePaintEvent(e) {
-                    // Normalisation coordonnées Touch/Mouse
-                    let clientX, clientY;
-                    if (e.touches) {
-                        clientX = e.touches[0].clientX;
-                        clientY = e.touches[0].clientY;
-                    } else {
-                        clientX = e.clientX;
-                        clientY = e.clientY;
-                    }
-
-                    // Raycasting manuel simple
-                    const target = document.elementFromPoint(clientX, clientY);
-                    if (!target) return;
-                    
-                    const cell = target.closest('.cell');
-                    if (cell) {
-                        const [_, x, y] = cell.id.split('-');
-                        app.tools.applyTool(parseInt(x), parseInt(y));
-                    }
-                },
-
-                updateCellVisuals() {
-                    const maxVisits = Math.max(...Object.values(app.state.visits), 1);
-                    const isHeatmap = app.state.viewMode === 'heatmap';
-                    const isPolicy = app.state.viewMode === 'policy';
-
-                    document.querySelectorAll('.cell').forEach(c => {
-                        const [_, x, y] = c.id.split('-');
-                        const k = `${x},${y}`;
-                        
-                        // Reset classes de base
-                        c.className = 'cell';
-                        if (app.state.obstacles.has(k)) c.classList.add('obstacle');
-                        else if (app.state.goals.has(k)) c.classList.add('goal');
-                        else if (app.state.start.x == x && app.state.start.y == y) c.classList.add('start');
-                        else if (app.state.mud.has(k)) c.classList.add('mud');
-                        else if (app.state.ice.has(k)) c.classList.add('ice');
-                        else if (app.state.portals.has(k)) c.classList.add('portal');
-
-                        // Gestion Contenu dynamique (Arrows, Colors)
-                        if (!app.state.obstacles.has(k) && !app.state.goals.has(k)) {
-                            // Nettoyage arrows précédentes
-                            const existingArrow = c.querySelector('.policy-arrow');
-                            if(existingArrow) existingArrow.remove();
-
-                            if (isHeatmap) {
-                                const v = app.state.visits[k] || 0;
-                                const intensity = Math.min(v / maxVisits, 1) * 0.8;
-                                c.style.background = `rgba(248, 113, 113, ${intensity})`;
-                            } 
-                            else if (isPolicy) {
-                                const q = app.state.q[k] || [0,0,0,0];
-                                const max = Math.max(...q);
-                                if (Math.abs(max) > 0.1) {
-                                    const action = q.indexOf(max);
-                                    const icons = ['fa-arrow-up', 'fa-arrow-right', 'fa-arrow-down', 'fa-arrow-left'];
-                                    c.innerHTML += `<i class="fas ${icons[action]} policy-arrow"></i>`;
-                                }
-                                c.style.background = `rgba(255,255,255,0.02)`;
-                            } 
-                            else {
-                                // Mode Normal (Q-Color)
-                                const q = app.state.q[k] || [0,0,0,0];
-                                const max = Math.max(...q);
-                                if (max > 0.1) c.style.background = `rgba(16, 185, 129, ${Math.min(max / 100, 0.6)})`;
-                                else if (max < -0.1) c.style.background = `rgba(239, 68, 68, ${Math.min(Math.abs(max) / 20, 0.5)})`;
-                                else c.style.background = '';
-                                
-                                // Update textes valeurs
-                                if (app.config.size <= 20) {
-                                    for(let i=0; i<4; i++) {
-                                        const span = document.getElementById(`q-${x}-${y}-${i}`);
-                                        if(span) span.innerText = Math.abs(q[i]) > 0.1 ? Math.round(q[i]) : '';
-                                    }
-                                }
-                            }
-                        } else {
-                            c.style.background = '';
-                        }
-                    });
-                },
-
-                updateSingleCellQ(x, y) {
-                    if (app.config.size > 20 || app.state.viewMode !== 'q') return;
-                    const q = app.state.q[`${x},${y}`];
-                    if (!q) return;
-                    for (let i = 0; i < 4; i++) {
-                        const el = document.getElementById(`q-${x}-${y}-${i}`);
-                        if (el) el.innerText = Math.abs(q[i]) > 0.1 ? Math.round(q[i]) : '';
-                    }
-                },
-
-                moveAgentVisual() {
-                    const agent = document.getElementById('agent');
-                    const pct = 100 / app.config.size;
-                    const offset = (pct - (pct * 0.6)) / 2;
-                    // Transition fluide désactivée en Turbo
-                    agent.style.transition = app.config.isTurbo ? 'none' : 'all 0.1s cubic-bezier(0.22, 1, 0.36, 1)';
-                    agent.style.width = `${pct * 0.6}%`;
-                    agent.style.height = `${pct * 0.6}%`;
-                    agent.style.left = `${(app.state.pos.x * pct) + offset}%`;
-                    agent.style.top = `${(app.state.pos.y * pct) + offset}%`;
-                },
-
-                drawBestPath() {
-                    if (!this.pathCanvas) return;
-                    const ctx = this.pathCanvas.getContext('2d');
-                    ctx.clearRect(0, 0, this.pathCanvas.width, this.pathCanvas.height);
-
-                    const size = app.config.size;
-                    const w = this.pathCanvas.width / size;
-                    const h = this.pathCanvas.height / size;
-
-                    let cx = app.state.start.x, cy = app.state.start.y;
-                    ctx.beginPath();
-                    ctx.moveTo(cx * w + w/2, cy * h + h/2);
-
-                    const maxIter = size * size; // Sécurité boucle infinie
-                    let iter = 0;
-
-                    while(iter < maxIter) {
-                        const k = `${cx},${cy}`;
-                        if (app.state.goals.has(k)) break; // Arrivé
-
-                        const qs = app.state.q[k];
-                        if (!qs) break;
-                        const maxQ = Math.max(...qs);
-                        if (Math.abs(maxQ) < 0.1) break; // Pas assez d'info
-
-                        const action = qs.indexOf(maxQ);
-                        let nx = cx, ny = cy;
-                        if (action === 0) ny--; else if (action === 1) nx++; else if (action === 2) ny++; else if (action === 3) nx--;
-
-                        // Stop si mur ou bord
-                        if (nx < 0 || ny < 0 || nx >= size || ny >= size || app.state.obstacles.has(`${nx},${ny}`)) break;
-
-                        // Gestion visuelle portail
-                        const nk = `${nx},${ny}`;
-                        if (app.state.portals.has(nk)) {
-                            // Tracer jusqu'à l'entrée
-                            ctx.lineTo(nx * w + w/2, ny * h + h/2);
-                            
-                            // Sauter à la sortie (visuel)
-                            const portals = Array.from(app.state.portals).filter(p => p !== nk);
-                            if (portals.length > 0) {
-                                const [px, py] = portals[0].split(',').map(Number);
-                                ctx.moveTo(px * w + w/2, py * h + h/2);
-                                cx = px; cy = py;
-                                iter++;
-                                continue;
-                            } else break;
-                        }
-
-                        ctx.lineTo(nx * w + w/2, ny * h + h/2);
-                        cx = nx; cy = ny;
-                        iter++;
-                    }
-
-                    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-                    ctx.lineWidth = Math.max(2, w * 0.15);
-                    ctx.strokeStyle = '#00ff88'; // Couleur néon vert
-                    ctx.shadowColor = '#00ff88'; ctx.shadowBlur = 10;
-                    ctx.stroke();
-                },
-
-                updatePathCanvasSize() {
-                    const grid = document.getElementById('grid');
-                    if (this.pathCanvas && grid) {
-                        this.pathCanvas.width = grid.clientWidth;
-                        this.pathCanvas.height = grid.clientHeight;
-                    }
-                },
-                updatePathCanvas() { this.updatePathCanvasSize(); this.drawBestPath(); },
-
-                updateStats() {
-                    document.getElementById('val-ep').innerText = app.state.episode;
-                    document.getElementById('val-steps').innerText = app.state.steps;
-                    document.getElementById('val-reward').innerText = app.state.reward;
-                    const rate = app.state.episode > 0 ? ((app.state.wins / app.state.episode) * 100).toFixed(0) : 0;
-                    document.getElementById('val-success').innerText = rate + "%";
-                    
-                    // Calcul stats globales
-                    const history = app.state.history;
-                    if(history.length > 0) {
-                         const avgS = history.reduce((a,b)=>a+b.s, 0) / history.length;
-                         const avgR = history.reduce((a,b)=>a+b.r, 0) / history.length;
-                         document.getElementById('val-avg-steps').innerText = avgS.toFixed(1);
-                         document.getElementById('val-avg-reward').innerText = avgR.toFixed(1);
-                    }
-                },
-
-                toggleSidebar() { document.getElementById('sidebar').classList.toggle('collapsed'); },
-                toggleGraph() { document.getElementById('hud-container').classList.toggle('collapsed'); },
-                
-                toggleViewMode(mode) {
-                    if (app.state.viewMode === mode) app.state.viewMode = 'q';
-                    else app.state.viewMode = mode;
-                    
-                    // Gestion boutons actifs
-                    document.getElementById('t-policy').classList.toggle('active', app.state.viewMode === 'policy');
-                    document.getElementById('t-heatmap').classList.toggle('active', app.state.viewMode === 'heatmap');
-                    
-                    const labels = { 'policy': 'Vue Politique', 'heatmap': 'Vue Heatmap', 'q': 'Vue Normale' };
-                    app.ui.showToast(labels[app.state.viewMode]);
-                    this.updateCellVisuals();
-                },
-
-                showToast(msg) {
-                    const t = document.getElementById('toast');
-                    t.querySelector('span').innerText = msg;
-                    t.classList.add('visible');
-                    setTimeout(() => t.classList.remove('visible'), 2000);
-                },
-
-                showMath(oldQ, r, maxNext, newVal) {
-                    const el = document.getElementById('math-display');
-                    // Utilisation de spans colorés pour la lisibilité de l'équation
-                    const html = `
-                        <span style="color:#94a3b8">Q</span> ← 
-                        <span style="color:#94a3b8">${oldQ.toFixed(2)}</span> + 
-                        <span style="color:#ec4899">${app.config.alpha}</span> (
-                        <span style="color:#10b981">${r}</span> + 
-                        <span style="color:#6366f1">${app.config.gamma}</span> × 
-                        <span style="color:#f59e0b">${maxNext.toFixed(2)}</span> - 
-                        <span style="color:#94a3b8">${oldQ.toFixed(2)}</span>
-                        ) = <b>${newVal.toFixed(2)}</b>
-                        <div class="math-tooltip">
-                            <div class="mt-row"><span class="mt-key" style="color:#ec4899">Alpha (α)</span> Apprentissage</div>
-                            <div class="mt-row"><span class="mt-key" style="color:#10b981">Reward (R)</span> Récompense immédiate</div>
-                            <div class="mt-row"><span class="mt-key" style="color:#6366f1">Gamma (γ)</span> Importance futur</div>
-                            <div class="mt-row"><span class="mt-key" style="color:#f59e0b">Max Q</span> Meilleure estimation future</div>
-                        </div>
-                    `;
-                    el.innerHTML = html;
-                    el.classList.add('visible');
-                    clearTimeout(app.core.mathTimer);
-                    app.core.mathTimer = setTimeout(() => el.classList.remove('visible'), 3000);
-                },
-                
-                setupTouchSliders() {
-                    const sliders = [
-                        {id:'ts-speed', param:'speed', min:0, max:100},
-                        {id:'ts-epsilon', param:'epsilon', min:0, max:1},
-                        {id:'ts-alpha', param:'alpha', min:0, max:1},
-                        {id:'ts-gamma', param:'gamma', min:0, max:1}
-                    ];
-                    sliders.forEach(s => {
-                        const el = document.getElementById(s.id);
-                        const handle = (e) => {
-                            e.preventDefault();
-                            const rect = el.getBoundingClientRect();
-                            const cx = e.touches ? e.touches[0].clientX : e.clientX;
-                            let pct = (cx - rect.left) / rect.width;
-                            pct = Math.max(0, Math.min(1, pct));
-                            const val = s.min + pct * (s.max - s.min);
-                            
-                            // Update input réel
-                            const input = document.getElementById('inp-' + s.param);
-                            if(input) {
-                                input.value = val;
-                                app.config.updateFromInput(input);
-                            }
-                        };
-                        el.addEventListener('mousedown', (e) => { handle(e); document.addEventListener('mousemove', handle); document.addEventListener('mouseup', () => document.removeEventListener('mousemove', handle), {once:true}); });
-                        el.addEventListener('touchmove', handle, {passive:false});
-                    });
-                },
-                
-                updateTactile(param, val) {
-                    const el = document.getElementById('ts-' + param);
-                    if(!el) return;
-                    const fill = el.querySelector('.ts-fill');
-                    const txt = el.querySelector('.ts-val-disp');
-                    
-                    let pct = 0; let disp = "";
-                    if (param === 'speed') {
-                        pct = val; disp = val > 85 ? "TURBO" : val + "%";
-                    } else {
-                        pct = val * 100; disp = parseFloat(val).toFixed(2);
-                    }
-                    fill.style.width = pct + "%";
-                    txt.innerText = disp;
-                }
-            },
-
-            // --- MODULE TOOLS : Outils d'édition ---
-            tools: {
-                setTool(t) {
-                    app.state.tool = t;
-                    document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
-                    document.getElementById('t-' + t).classList.add('active');
-                    
-                    // Gestion modes vues vs outils
-                    if (['view', 'policy', 'heatmap'].includes(t)) {
-                        // Le bouton a déjà géré la vue, ici on reset si c'est "view" (curseur simple)
-                        if(t === 'view') { app.state.viewMode = 'q'; app.ui.updateCellVisuals(); }
-                    } else {
-                        app.state.viewMode = 'q'; // Reset vue si on édite
-                        app.ui.updateCellVisuals();
-                        
-                        const labels = {
-                            wall: 'Mur', mud: 'Boue', ice: 'Glace', portal: 'Portail',
-                            goal: 'Objectif', start: 'Départ', eraser: 'Gomme'
-                        };
-                        app.ui.showToast(labels[t] + ' sélectionné');
-                    }
-                    this.closeGoalEditor();
-                },
-
-                applyTool(x, y) {
-                    const k = `${x},${y}`;
-                    const t = app.state.tool;
-
-                    // Si curseur sur un Goal -> Ouvrir éditeur
-                    if (t === 'view' && app.state.goals.has(k)) {
-                        this.openGoalEditor(x, y);
-                        return;
-                    }
-                    this.closeGoalEditor();
-
-                    // Nettoyer la cellule avant d'appliquer (sauf si eraser)
-                    const clear = () => {
-                        app.state.obstacles.delete(k); app.state.goals.delete(k);
-                        app.state.mud.delete(k); app.state.ice.delete(k); app.state.portals.delete(k);
-                    };
-
-                    if (t === 'wall') { if(!app.state.obstacles.has(k)) { clear(); app.state.obstacles.add(k); } }
-                    else if (t === 'goal') { if(!app.state.goals.has(k)) { clear(); app.state.goals.set(k, app.config.goalReward); } }
-                    else if (t === 'mud') { if(!app.state.mud.has(k)) { clear(); app.state.mud.add(k); } }
-                    else if (t === 'ice') { if(!app.state.ice.has(k)) { clear(); app.state.ice.add(k); } }
-                    else if (t === 'portal') { if(!app.state.portals.has(k)) { clear(); app.state.portals.add(k); } }
-                    else if (t === 'start') {
-                        app.state.start = {x, y}; clear();
-                        if(!app.state.running) { app.state.pos = {x,y}; app.ui.moveAgentVisual(); }
-                    }
-                    else if (t === 'eraser') { clear(); app.state.q[k] = [0,0,0,0]; }
-
-                    app.ui.updateCellVisuals();
-                    app.ui.updateSingleCellQ(x, y);
-                    app.ui.drawBestPath();
-                },
-
-                openGoalEditor(x, y) {
-                    const k = `${x},${y}`;
-                    app.state.editingGoal = k;
-                    const val = app.state.goals.get(k);
-                    
-                    const ed = document.getElementById('goal-editor');
-                    document.getElementById('ge-slider').value = val;
-                    document.getElementById('ge-val').innerText = val;
-                    
-                    // Positionnement contextuel
-                    const cell = document.getElementById(`c-${x}-${y}`);
-                    const rect = cell.getBoundingClientRect();
-                    const w = 180, h = 80;
-                    
-                    let left = rect.left + (rect.width/2) - (w/2);
-                    let top = rect.top - h - 10;
-                    // Garde-fou écran
-                    if(left < 10) left = 10;
-                    if(top < 10) top = rect.bottom + 10;
-                    
-                    ed.style.left = left + 'px'; ed.style.top = top + 'px';
-                    ed.style.display = 'flex';
-                },
-                closeGoalEditor() { document.getElementById('goal-editor').style.display = 'none'; app.state.editingGoal = null; },
-                updateGoalValue(v) {
-                    if(app.state.editingGoal) {
-                        app.state.goals.set(app.state.editingGoal, parseInt(v));
-                        document.getElementById('ge-val').innerText = v;
-                        app.ui.drawBestPath();
-                    }
-                }
-            },
-
-            // --- MODULE IO : Import/Export ---
-            io: {
-                export() {
-                    const data = {
-                        config: app.config,
-                        state: {
-                            ...app.state,
-                            goals: Array.from(app.state.goals),
-                            obstacles: Array.from(app.state.obstacles),
-                            mud: Array.from(app.state.mud),
-                            ice: Array.from(app.state.ice),
-                            portals: Array.from(app.state.portals),
-                            running: false, history: []
-                        }
-                    };
-                    const blob = new Blob([JSON.stringify(data)], {type:'application/json'});
-                    const a = document.createElement('a');
-                    a.href = URL.createObjectURL(blob);
-                    a.download = `qlab-save-${Date.now()}.json`;
-                    a.click();
-                },
-                import(input) {
-                    const f = input.files[0];
-                    if(!f) return;
-                    const r = new FileReader();
-                    r.onload = e => {
-                        try {
-                            const d = JSON.parse(e.target.result);
-                            app.config = {...app.config, ...d.config};
-                            app.state = {
-                                ...app.state,
-                                ...d.state,
-                                goals: new Map(d.state.goals),
-                                obstacles: new Set(d.state.obstacles),
-                                mud: new Set(d.state.mud),
-                                ice: new Set(d.state.ice),
-                                portals: new Set(d.state.portals)
-                            };
-                            // Refresh UI
-                            document.querySelectorAll('input').forEach(i => app.config.updateFromInput(i));
-                            app.core.resize(app.config.size);
-                            // Restore Q values after resize wipe
-                            app.state.q = d.state.q;
-                            app.ui.renderGrid();
-                        } catch(err) { alert('Fichier corrompu ou version incompatible.'); }
-                    };
-                    r.readAsText(f);
-                }
-            },
-
-            // --- MODULE CHART : Visualisation ---
-            chart: {
-                instance: null,
-                config: { metricIndex: 0, smoothing: 1, metrics: [
-                    {id:'r', label:'Score (Reward)', color:'#6366f1'},
-                    {id:'s', label:'Nombre de Pas', color:'#f59e0b'},
-                    {id:'w', label:'Taux Succès %', color:'#10b981'}
-                ]},
-                init() {
-                    const ctx = document.getElementById('chart').getContext('2d');
-                    Chart.defaults.font.family = "'JetBrains Mono', monospace";
-                    Chart.defaults.color = '#64748b';
-                    this.instance = new Chart(ctx, {
-                        type: 'line',
-                        data: { labels: [], datasets: [] },
-                        options: {
-                            responsive: true, maintainAspectRatio: false,
-                            plugins: { legend: { display: false } },
-                            scales: { 
-                                x: { display: false }, 
-                                y: { grid: { color: 'rgba(255,255,255,0.05)' } } 
-                            },
-                            animation: false,
-                            elements: { point: { radius: 0 } }
-                        }
-                    });
-                },
-                update() {
-                    if(!this.instance || app.state.history.length === 0) return;
-                    const m = this.config.metrics[this.config.metricIndex];
-                    let data = [];
-                    
-                    if(m.id === 'r') data = app.state.history.map(h => h.r);
-                    else if(m.id === 's') data = app.state.history.map(h => h.s);
-                    else if(m.id === 'w') data = app.state.history.map(h => h.w * 100);
-
-                    // Moyenne mobile (Lissage)
-                    if(this.config.smoothing > 1) {
-                        const smoothed = [];
-                        for(let i=0; i<data.length; i++) {
-                            const start = Math.max(0, i - this.config.smoothing + 1);
-                            const subset = data.slice(start, i+1);
-                            smoothed.push(subset.reduce((a,b)=>a+b,0) / subset.length);
-                        }
-                        data = smoothed;
-                    }
-                    
-                    this.instance.data.labels = app.state.history.map(h => h.ep);
-                    this.instance.data.datasets = [{
-                        label: m.label,
-                        data: data,
-                        borderColor: m.color,
-                        borderWidth: 2,
-                        tension: 0.3
-                    }];
-                    this.instance.update('none'); // Mode performant
-                    document.getElementById('lbl-metric').innerText = m.label;
-                },
-                prevMetric() { this.config.metricIndex = (this.config.metricIndex - 1 + 3) % 3; this.update(); },
-                nextMetric() { this.config.metricIndex = (this.config.metricIndex + 1) % 3; this.update(); },
-                updateSmoothing(v) { this.config.smoothing = parseInt(v); this.update(); },
-                reset() { if(this.instance) { this.instance.data.labels = []; this.instance.data.datasets = []; this.instance.update(); } }
-            }
-        };
-
-        // Point d'entrée
-        window.onload = () => app.init();
-    </script>
+      </div>
+      <div style="position:relative;height:calc(100% - 26px);"><canvas id="chart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="tstrip" id="tstrip">
+    <div class="ts" id="ts-spd"><div class="ts-fill" style="width:20%"></div><div class="ts-lbl">⚡ Vitesse<span class="ts-sub" id="tsv-spd">10/s</span></div></div>
+    <div class="ts" id="ts-eps"><div class="ts-fill" style="width:10%"></div><div class="ts-lbl">🎲 Epsilon<span class="ts-sub" id="tsv-eps">0.10</span></div></div>
+    <div class="ts" id="ts-alp"><div class="ts-fill" style="width:10%"></div><div class="ts-lbl">🧠 Alpha<span class="ts-sub" id="tsv-alp">0.10</span></div></div>
+    <div class="ts" id="ts-gam"><div class="ts-fill" style="width:90%"></div><div class="ts-lbl">🔮 Gamma<span class="ts-sub" id="tsv-gam">0.90</span></div></div>
+  </div>
+
+  <div id="stage">
+    <div id="stage-2d">
+      <canvas id="canvas2d"></canvas>
+      <div id="stage-2d-3d" style="display:none;flex:1;"></div>
+    </div>
+    <div id="stage-3d"></div>
+
+    </div>
+
+    <!-- 2D/3D TOOLBAR -->
+    <div id="toolbar" class="tb-horiz">
+      <div class="t-btn-wrap"><button class="t-btn active" id="t-view" data-t="view" onclick="App.setTool('view')"><i class="fa fa-eye"></i></button><span class="t-tip">Vue</span></div>
+      <div class="t-btn-wrap"><button class="t-btn" id="t-policy" data-t="policy" onclick="App.setTool('policy')"><i class="fa fa-compass"></i></button><span class="t-tip">Politique</span></div>
+      <div class="t-btn-wrap"><button class="t-btn" id="t-heatmap" data-t="heatmap" onclick="App.setTool('heatmap')"><i class="fa fa-fire-flame-curved"></i></button><span class="t-tip">Heatmap</span></div>
+      <div class="t-sep"></div>
+      <div class="t-btn-wrap"><button class="t-btn" id="t-wall" data-t="wall" onclick="App.setTool('wall')"><i class="fa fa-square"></i></button><span class="t-tip">Mur</span></div>
+      <div class="t-btn-wrap"><button class="t-btn" id="t-mud" data-t="mud" onclick="App.setTool('mud')"><i class="fa fa-water"></i></button><span class="t-tip">Boue</span></div>
+      <div class="t-btn-wrap"><button class="t-btn" id="t-ice" data-t="ice" onclick="App.setTool('ice')"><i class="fa fa-snowflake"></i></button><span class="t-tip">Glace</span></div>
+      <div class="t-btn-wrap"><button class="t-btn" id="t-fire" data-t="fire" onclick="App.setTool('fire')"><i class="fa fa-fire"></i></button><span class="t-tip">Feu</span></div>
+      <div class="t-btn-wrap"><button class="t-btn" id="t-portal" data-t="portal" onclick="App.setTool('portal')"><i class="fa fa-circle-nodes"></i></button><span class="t-tip">Portail</span></div>
+      <div class="t-sep"></div>
+      <div class="t-btn-wrap"><button class="t-btn" id="t-goal" data-t="goal" onclick="App.setTool('goal')"><i class="fa fa-bullseye"></i></button><span class="t-tip">But</span></div>
+      <div class="t-btn-wrap"><button class="t-btn" id="t-start" data-t="start" onclick="App.setTool('start')"><i class="fa fa-flag"></i></button><span class="t-tip">Départ</span></div>
+      <div class="t-btn-wrap"><button class="t-btn" id="t-eraser" data-t="eraser" onclick="App.setTool('eraser')"><i class="fa fa-eraser"></i></button><span class="t-tip">Effacer</span></div>
+    </div>
+
+    <!-- GOAL EDITOR -->
+    <div id="goal-editor">
+      <div class="ge-title">🎯 Récompense</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span id="ge-val" style="font-family:'JetBrains Mono';font-size:.95rem;color:var(--success);font-weight:700;">100</span>
+        <span id="ge-pos" style="font-size:.58rem;color:var(--muted);"></span>
+      </div>
+      <input type="range" id="ge-slider" min="10" max="1000" step="10" oninput="App.goalEditor.update(this.value)">
+      <div style="display:flex;gap:4px;">
+        <button style="flex:1;background:var(--success);border:none;border-radius:5px;color:#000;font-size:.65rem;padding:4px;cursor:pointer;font-weight:700;" onclick="App.goalEditor.close(true)">✓ OK</button>
+        <button style="flex:1;background:rgba(244,63,94,.3);border:none;border-radius:5px;color:#fff;font-size:.65rem;padding:4px;cursor:pointer;" onclick="App.goalEditor.close(false)">✕</button>
+      </div>
+    </div>
+
+    <div id="kbd-badge"><i class="fa fa-crosshairs"></i> <span>Curseur clavier actif</span></div>
+    <div id="cursor-hud">
+      <div id="c-pos" style="color:var(--accent);font-weight:700;margin-bottom:2px;"></div>
+      <div id="c-type" style="color:var(--muted);"></div>
+      <div id="c-qvals" style="color:var(--muted);font-size:.58rem;margin-top:2px;"></div>
+    </div>
+    <div id="ctrl-info">
+      Clic/Drag : Dessiner<br>
+      Clic droit But : Récompense<br>
+      <span id="ci-3d" style="display:none">Drag : Orbite 3D<br></span>
+      ↑↓←→ : Curseur 3D | Espace : Play
+    </div>
+    <div id="toast"></div>
+  </div>
+</section>
+
+<!-- HELP -->
+<div class="overlay-panel" id="help-panel">
+  <h3 style="margin-bottom:10px;font-size:.85rem;color:var(--primary);">⌨️ Raccourcis & Légende</h3>
+  <div style="font-size:.7rem;line-height:2;color:var(--text);">
+    <div><kbd style="background:rgba(255,255,255,.1);padding:1px 6px;border-radius:3px;">Espace</kbd> — Play / Pause</div>
+    <div><kbd style="background:rgba(255,255,255,.1);padding:1px 6px;border-radius:3px;">↑↓←→ / PgUp/Dn</kbd> — Curseur 3D</div>
+    <div><kbd style="background:rgba(255,255,255,.1);padding:1px 6px;border-radius:3px;">Enter</kbd> — Placer outil (3D)</div>
+    <div style="margin-top:8px;border-top:var(--border);padding-top:8px;">
+      Outil Mur / Boue / Glace / Feu / Portail / But / Départ / Effacer<br>
+      Clic+Drag pour dessiner, Clic droit effacer<br>
+      Clic droit sur un But = éditer récompense<br>
+      Heatmap = fréquence de visite par zone<br>
+      Politique = affiche la meilleure action Q
+    </div>
+    <div style="margin-top:8px;border-top:var(--border);padding-top:8px;">
+      <span style="color:#8896a8">■</span> Mur<br>
+      <span style="color:#b45309">■</span> Boue (vitesse réduite)<br>
+      <span style="color:#06b6d4">■</span> Glace (glisse)<br>
+      <span style="color:var(--fire)">🔥</span> Feu — retour au départ<br>
+      <span style="color:var(--success)">●</span> But — récompense personnalisable
+    </div>
+  </div>
+  <button onclick="document.getElementById('help-panel').classList.remove('open')" style="margin-top:12px;width:100%;padding:6px;background:var(--primary);border:none;border-radius:7px;color:#fff;cursor:pointer;font-family:inherit;">Fermer</button>
+</div>
+
+<!-- IMPORT IMAGE -->
+<div class="overlay-panel" id="import-panel">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+    <h3 style="font-size:.85rem;color:var(--primary);">📁 Import image → grille</h3>
+    <button onclick="document.getElementById('import-panel').classList.remove('open')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem;">✕</button>
+  </div>
+  <div style="font-size:.67rem;color:var(--muted);margin-bottom:8px;">PNG/SVG noir & blanc. Noir = mur, Blanc = vide.</div>
+  <div class="import-drop" id="import-drop" onclick="document.getElementById('file-input').click()">
+    <i class="fa fa-image"></i>
+    <div style="font-size:.75rem;color:var(--muted);">Glisser ou cliquer</div>
+  </div>
+  <input type="file" id="file-input" accept="image/*,.svg" style="display:none" onchange="App.imageImport.loadFile(this)">
+  <div class="cg" style="margin-top:10px;">
+    <div class="cg-lbl"><span>Résolution grille</span><span class="cg-val" id="txt-import-res">20×20</span></div>
+    <input type="range" id="inp-import-res" min="4" max="60" value="20" oninput="document.getElementById('txt-import-res').textContent=this.value+'×'+this.value;App.imageImport.preview()">
+  </div>
+  <canvas id="import-preview" style="width:100%;margin-top:8px;border-radius:6px;border:var(--border);display:none;"></canvas>
+  <button id="btn-apply-import" style="display:none;margin-top:8px;width:100%;padding:7px;background:var(--primary);border:none;border-radius:7px;color:#fff;cursor:pointer;font-family:inherit;font-weight:700;" onclick="App.imageImport.apply()">✓ Appliquer</button>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════
+// UTILITIES
+// ════════════════════════════════════════════════════════
+function sliderToSPS(v){return Math.max(1,Math.round(Math.pow(2000,(v-1)/199)));}
+function heatColor(t){const r=Math.round(t<.5?t*2*200+30:255),g=Math.round(t<.5?t*2*200+30:Math.max(0,(1-t)*2*255)),b=Math.round(t<.5?Math.max(0,(1-t*2)*220):0);return`rgb(${r},${g},${b})`;}
+function heatColor3d(t){return new THREE.Color(t<.5?t*2*.8+.12:1,t<.5?t*2*.8+.12:Math.max(0,(1-t)*2),t<.5?Math.max(0,(1-t*2)*.86):0);}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+// ════════════════════════════════════════════════════════
+// PROCEDURAL TEXTURE ENGINE
+// ════════════════════════════════════════════════════════
+const Tex={
+  _cache:{},_sz:64,
+  _make(draw){const c=document.createElement('canvas');c.width=this._sz;c.height=this._sz;draw(c.getContext('2d'),this._sz);return c;},
+  _noise(x,y,s=1){const n=Math.sin(x*127.1*s+y*311.7*s)*43758.5453123;return n-Math.floor(n);},
+  _fbm(x,y,oct=4){let v=0,amp=.5,freq=1;for(let i=0;i<oct;i++){v+=amp*this._noise(x*freq,y*freq);amp*=.5;freq*=2.1;}return v;},
+  _wall(){return this._make((ctx,S)=>{const bg=ctx.createLinearGradient(0,0,S,S);bg.addColorStop(0,'#3a4252');bg.addColorStop(1,'#2a3040');ctx.fillStyle=bg;ctx.fillRect(0,0,S,S);const bW=Math.floor(S/2),bH=Math.floor(S/3);for(let row=0;row<4;row++){const off=(row%2)*Math.floor(bW/2);for(let col=-1;col<3;col++){const bx=(col*bW+off)%S,by=row*bH;const lx=bx<0?bx+S:bx;const noise=this._fbm(lx/S*3,by/S*3,3);ctx.fillStyle=`rgba(${50+noise*30|0},${62+noise*25|0},${78+noise*20|0},1)`;ctx.fillRect(lx+1,by+1,bW-2,bH-2);ctx.fillStyle='rgba(255,255,255,.06)';ctx.fillRect(lx+1,by+1,bW-2,2);ctx.fillStyle='rgba(0,0,0,.18)';ctx.fillRect(lx+1,by+bH-3,bW-2,2);}ctx.fillStyle='#1c2535';ctx.fillRect(0,row*bH,S,2);}})},
+  _ice(){return this._make((ctx,S)=>{const bg=ctx.createRadialGradient(S*.4,S*.3,0,S*.5,S*.5,S*.7);bg.addColorStop(0,'#dff4ff');bg.addColorStop(.5,'#9dd8f0');bg.addColorStop(1,'#5bb8d8');ctx.fillStyle=bg;ctx.fillRect(0,0,S,S);ctx.strokeStyle='rgba(255,255,255,.7)';ctx.lineWidth=1.5;const pts=[[S*.2,S*.1],[S*.5,S*.35],[S*.8,S*.15],[S*.65,S*.6],[S*.3,S*.8],[S*.1,S*.55]];for(let i=0;i<pts.length-1;i++){ctx.beginPath();ctx.moveTo(pts[i][0],pts[i][1]);ctx.lineTo(pts[(i+2)%pts.length][0],pts[(i+2)%pts.length][1]);ctx.stroke();}[[S*.15,S*.2],[S*.7,S*.3],[S*.4,S*.75]].forEach(([sx,sy])=>{const grd=ctx.createRadialGradient(sx,sy,0,sx,sy,S*.1);grd.addColorStop(0,'rgba(255,255,255,.95)');grd.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=grd;ctx.beginPath();ctx.arc(sx,sy,S*.1,0,Math.PI*2);ctx.fill();});})},
+  _mud(){return this._make((ctx,S)=>{ctx.fillStyle='#3b1f08';ctx.fillRect(0,0,S,S);for(let i=0;i<20;i++){const x=Math.random()*S,y=Math.random()*S,r=S*.05+Math.random()*S*.12;const c=this._fbm(x/S*4,y/S*4);const grd=ctx.createRadialGradient(x,y,0,x,y,r);const base=40+c*30|0;grd.addColorStop(0,`rgba(${base+20},${base/2},${5},0.6)`);grd.addColorStop(1,`rgba(${base},${base/2},${5},0)`);ctx.fillStyle=grd;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();}})},
+  _fire(){return this._make((ctx,S)=>{ctx.fillStyle='#0d0200';ctx.fillRect(0,0,S,S);const base=ctx.createRadialGradient(S*.5,S,0,S*.5,S,S*.6);base.addColorStop(0,'rgba(255,80,0,.95)');base.addColorStop(.4,'rgba(200,30,0,.6)');base.addColorStop(1,'rgba(80,0,0,0)');ctx.fillStyle=base;ctx.fillRect(0,0,S,S);const flames=[{cx:S*.25,w:S*.22,h:S*.72,twist:-.15},{cx:S*.5,w:S*.32,h:S*.92,twist:.08},{cx:S*.72,w:S*.24,h:S*.68,twist:.18}];flames.forEach(f=>{const tip=S-f.h;const tipX=f.cx+f.twist*S;const grd=ctx.createLinearGradient(f.cx,S,tipX,tip);grd.addColorStop(0,'rgba(255,220,0,.9)');grd.addColorStop(.25,'rgba(255,100,0,.85)');grd.addColorStop(.65,'rgba(200,20,0,.6)');grd.addColorStop(1,'rgba(100,0,0,0)');ctx.fillStyle=grd;ctx.beginPath();ctx.moveTo(f.cx-f.w/2,S);ctx.bezierCurveTo(f.cx-f.w*.6,S-f.h*.3,tipX-f.w*.25,S-f.h*.65,tipX,tip);ctx.bezierCurveTo(tipX+f.w*.25,S-f.h*.65,f.cx+f.w*.6,S-f.h*.3,f.cx+f.w/2,S);ctx.closePath();ctx.fill();});for(let i=0;i<18;i++){const ex=S*.15+Math.random()*S*.7,ey=S*.1+Math.random()*S*.75,er=.8+Math.random()*2.2;ctx.fillStyle=`rgba(255,${100+Math.random()*140|0},0,${.5+Math.random()*.5})`;ctx.beginPath();ctx.arc(ex,ey,er,0,Math.PI*2);ctx.fill();}})},
+  _goal(){return this._make((ctx,S)=>{ctx.fillStyle='#071a12';ctx.fillRect(0,0,S,S);const grd=ctx.createRadialGradient(S/2,S/2,0,S/2,S/2,S*.5);grd.addColorStop(0,'rgba(16,220,130,.9)');grd.addColorStop(.5,'rgba(10,160,90,.5)');grd.addColorStop(1,'rgba(0,80,40,.0)');ctx.fillStyle=grd;ctx.fillRect(0,0,S,S);ctx.fillStyle='rgba(180,255,200,.9)';ctx.save();ctx.translate(S/2,S/2);for(let i=0;i<5;i++){ctx.rotate(Math.PI*2/5);ctx.beginPath();ctx.moveTo(0,-S*.28);ctx.lineTo(S*.07,-S*.07);ctx.lineTo(S*.28,0);ctx.lineTo(S*.07,S*.07);ctx.lineTo(0,S*.28);ctx.lineTo(-S*.07,S*.07);ctx.lineTo(-S*.28,0);ctx.lineTo(-S*.07,-S*.07);ctx.closePath();ctx.fill();}ctx.restore();})},
+  _portal(){return this._make((ctx,S)=>{ctx.fillStyle='#0a0318';ctx.fillRect(0,0,S,S);for(let ring=8;ring>=0;ring--){const t=ring/8;const grd=ctx.createRadialGradient(S/2,S/2,0,S/2,S/2,S*.5*t+2);grd.addColorStop(0,`rgba(${120+ring*10},${30+ring*8},${255-ring*10},${.7-t*.4})`);grd.addColorStop(1,`rgba(80,0,200,0)`);ctx.fillStyle=grd;ctx.beginPath();ctx.arc(S/2,S/2,S*.48*t+4,0,Math.PI*2);ctx.fill();}})},
+  _start(){return this._make((ctx,S)=>{const bg=ctx.createLinearGradient(0,0,S,S);bg.addColorStop(0,'#0f2744');bg.addColorStop(1,'#091a33');ctx.fillStyle=bg;ctx.fillRect(0,0,S,S);ctx.strokeStyle='rgba(59,130,246,.2)';ctx.lineWidth=1;for(let i=0;i<S;i+=S/6){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,S);ctx.stroke();}ctx.fillStyle='rgba(59,130,246,.8)';ctx.fillRect(S*.35,S*.2,S*.06,S*.55);ctx.fillStyle='rgba(59,200,246,.9)';ctx.beginPath();ctx.moveTo(S*.41,S*.2);ctx.lineTo(S*.75,S*.35);ctx.lineTo(S*.41,S*.5);ctx.closePath();ctx.fill();})},
+  _empty(){return this._make((ctx,S)=>{ctx.fillStyle='#111827';ctx.fillRect(0,0,S,S);for(let y=0;y<S;y+=4)for(let x=0;x<S;x+=4){const n=this._fbm(x/S*8,y/S*8,2);if(n>.55){ctx.fillStyle=`rgba(255,255,255,${(n-.55)*.08})`;ctx.fillRect(x,y,4,4);}}ctx.strokeStyle='rgba(255,255,255,.04)';ctx.lineWidth=.5;ctx.strokeRect(.25,.25,S-.5,S-.5);})},
+  _3d(name){if(!this._cache[name+'_3d']){const c=this['_'+name]();const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(1,1);this._cache[name+'_3d']=t;}return this._cache[name+'_3d'];},
+  draw2d(ctx,type,cx0,cy0,cw,ch){const key=`${type}_2d_${Math.round(cw)}x${Math.round(ch)}`;if(!this._cache[key]){const src=this['_'+type]();const scaled=document.createElement('canvas');scaled.width=cw;scaled.height=ch;scaled.getContext('2d').drawImage(src,0,0,cw,ch);this._cache[key]=scaled;}ctx.drawImage(this._cache[key],cx0,cy0);},
+  clearSizeCache(){Object.keys(this._cache).forEach(k=>{if(k.includes('_2d_'))delete this._cache[k];});},
+};
+
+// ════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════
+const ST={
+  q:{},obstacles:new Set(),goals:new Map(),mud:new Set(),ice:new Set(),fire:new Set(),
+  portals:new Set(),removedCells:new Set(),walkable:null,
+  start:{x:0,y:19,z:0},pos:{x:0,y:19,z:0},lastAction:null,
+  episode:0,steps:0,reward:0,wins:0,running:false,
+  history:[],visits:{},envEvents:[],
+  tool:'view',viewHeatmap:false,viewPolicy:false,hideQColors:false,
+};
+const CFG={mode:'2d',delay:100,isTurbo:false,turboSteps:1};
+const CFG2D={size:20,epsilon:.1,alpha:.1,gamma:.9,epsilonDecay:1,maxSteps:200,livingPenalty:-1,wallPenalty:-5,goalReward:100};
+const CFG3D={size:6,epsilon:.1,alpha:.1,gamma:.9,epsilonDecay:1,maxSteps:300,livingPenalty:-1,wallPenalty:-5,goalReward:100};
+function MC(){return CFG.mode==='2d'?CFG2D:CFG3D;}
+
+// ════════════════════════════════════════════════════════
+// MAIN APP
+// ════════════════════════════════════════════════════════
+const App={
+  lang:'fr',_animId:null,_timer:null,
+
+  init(){
+    this.mode2d.init();this.mode3d.init();this.chart.init();this.ui.initTouchSliders();this.initKeyboard();
+    this.setMode('2d');this.applyLang();
+    document.querySelectorAll('input[type=range]').forEach(i=>App.cfg.update(i));
+    window.addEventListener('resize',()=>{App.mode2d.onResize();});
+    document.addEventListener('mousedown',e=>{
+      const ge=document.getElementById('goal-editor');
+      if(ge.style.display==='flex'&&!ge.contains(e.target))App.goalEditor.close(false);
+    });
+    this.imageImport.init();
+  },
+
+  setMode(m){
+    CFG.mode=m;const is3=m==='3d';
+    document.getElementById('stage-2d').style.display=(m==='2d')?'flex':'none';
+    document.getElementById('stage-3d').style.display=is3?'flex':'none';
+    document.getElementById('btn-2d').classList.toggle('active',m==='2d');
+    document.getElementById('btn-3d').classList.toggle('active',is3);
+    document.getElementById('mode-badge').textContent=m.toUpperCase();
+    document.getElementById('mode-badge').className='badge '+(is3?'b3d':'b2d');
+    document.getElementById('wrap-2d').style.display=(m==='2d')?'block':'none';
+    document.getElementById('wrap-3d').style.display=is3?'block':'none';
+    document.getElementById('shape-section').style.display=is3?'block':'none';
+    document.getElementById('cursor-hud').style.display=is3?'block':'none';
+    document.getElementById('ci-3d').style.display=is3?'inline':'none';
+    document.getElementById('btn-cubes').style.display=is3?'flex':'none';
+    document.getElementById('btn-2d3d').style.display=(m==='2d')?'flex':'none';
+
+    if(is3&&App.mode2d._view3d){
+      App.mode2d._view3d=false;
+      document.getElementById('canvas2d').style.display='block';
+      document.getElementById('stage-2d-3d').style.display='none';
+      document.getElementById('btn-2d3d').classList.remove('active');
+      document.getElementById('lbl-2d3d').textContent='3D View';
+      if(App.mode2d._3dAnim){cancelAnimationFrame(App.mode2d._3dAnim);App.mode2d._3dAnim=null;}
+    }
+    this.core.stop();this.cfg.syncUIFromMode();
+    if(is3)this.mode3d.activate();
+    else this.mode2d.activate();
+  },
+
+  cfg:{
+    update(el){
+      const id=el.id,v=parseFloat(el.value);
+      if(id==='inp-speed'){
+        const sps=sliderToSPS(parseInt(el.value));
+        if(sps<=60){CFG.isTurbo=false;CFG.delay=Math.max(1,Math.floor(1000/sps));CFG.turboSteps=1;}
+        else{CFG.isTurbo=true;CFG.delay=0;CFG.turboSteps=Math.max(1,Math.floor(sps/60));}
+        const lbl=sps<1000?`${sps}/s`:`${(sps/1000).toFixed(1)}k/s`;
+        document.getElementById('txt-speed').textContent=lbl;
+        App.ui.setTS('ts-spd',parseInt(el.value)/200,'tsv-spd',lbl);return;
+      }
+      const mc=MC();
+      const MAP={
+        'inp-epsilon':['epsilon','txt-epsilon','ts-eps','tsv-eps'],
+        'inp-alpha':['alpha','txt-alpha','ts-alp','tsv-alp'],
+        'inp-gamma':['gamma','txt-gamma','ts-gam','tsv-gam'],
+        'inp-decay':['epsilonDecay','txt-decay',null,null],
+        'inp-maxsteps':['maxSteps','txt-maxsteps',null,null],
+        'inp-living':['livingPenalty','txt-living',null,null],
+        'inp-wallpen':['wallPenalty','txt-wallpen',null,null],
+        'inp-goalrw':['goalReward','txt-goalrw',null,null],
+      };
+      if(MAP[id]){const[key,txt,tsId,tsVId]=MAP[id];mc[key]=v;const fmt=id==='inp-decay'?3:2;document.getElementById(txt).textContent=parseFloat(v).toFixed(fmt);if(tsId)App.ui.setTS(tsId,v,'',parseFloat(v).toFixed(2));if(tsVId)document.getElementById(tsVId).textContent=parseFloat(v).toFixed(2);}
+    },
+    syncUIFromMode(){
+      const mc=MC();
+      const fields=[['inp-epsilon','txt-epsilon',mc.epsilon],['inp-alpha','txt-alpha',mc.alpha],['inp-gamma','txt-gamma',mc.gamma],['inp-decay','txt-decay',mc.epsilonDecay],['inp-maxsteps','txt-maxsteps',mc.maxSteps],['inp-living','txt-living',mc.livingPenalty],['inp-wallpen','txt-wallpen',mc.wallPenalty],['inp-goalrw','txt-goalrw',mc.goalReward]];
+      fields.forEach(([inp,lbl,val])=>{
+        const el=document.getElementById(inp);if(el)el.value=val;
+        const tl=document.getElementById(lbl);if(tl)tl.textContent=parseFloat(val).toFixed(inp==='inp-decay'?3:2);
+      });
+      App.ui.setTS('ts-eps',mc.epsilon,'tsv-eps',mc.epsilon.toFixed(2));
+      App.ui.setTS('ts-alp',mc.alpha,'tsv-alp',mc.alpha.toFixed(2));
+      App.ui.setTS('ts-gam',mc.gamma,'tsv-gam',mc.gamma.toFixed(2));
+    }
+  },
+
+  core:{
+    stop(){
+      ST.running=false;cancelAnimationFrame(App._animId);clearTimeout(App._timer);
+      const b=document.getElementById('btn-play');b.innerHTML='<i class="fa fa-play"></i>';b.classList.remove('running');
+    },
+    toggleRun(){
+      ST.running=!ST.running;const b=document.getElementById('btn-play');
+      if(ST.running){b.innerHTML='<i class="fa fa-pause"></i>';b.classList.add('running');this.doStep();}else this.stop();
+    },
+    doStep(){
+      if(!ST.running)return;
+      if(CFG.isTurbo){
+        for(let i=0;i<CFG.turboSteps;i++)if(this.logicStep())break;
+        App.ui.moveAgent();App.ui.updateStats();
+        App._animId=requestAnimationFrame(()=>this.doStep());
+      }else{
+        this.logicStep();App.ui.moveAgent();App.ui.updateStats();
+        if(CFG.mode==='2d')App.mode2d.draw();else App.mode3d.updateCellVisuals();
+        App._timer=setTimeout(()=>this.doStep(),CFG.delay);
+      }
+    },
+    logicStep(){
+      const is3=CFG.mode==='3d',mc=MC(),{x,y,z}=ST.pos,k=is3?`${x},${y},${z}`:`${x},${y}`;
+      ST.visits[k]=(ST.visits[k]||0)+1;const na=is3?6:4;if(!ST.q[k])ST.q[k]=Array(na).fill(0);
+      let action=this.chooseAction(k,na);
+      if(ST.ice.has(k)&&ST.lastAction!==null&&Math.random()<.8)action=ST.lastAction;
+      ST.lastAction=action;
+      let nx=x,ny=y,nz=z||0;
+      if(is3){if(action===0)nx++;else if(action===1)nx--;else if(action===2)ny++;else if(action===3)ny--;else if(action===4)nz++;else nz--;}
+      else{if(action===0)ny--;else if(action===1)nx++;else if(action===2)ny++;else nx--;}
+      const n=is3?CFG3D.size:CFG2D.size;
+      const nkc=is3?`${nx},${ny},${nz}`:`${nx},${ny}`;
+      const outOfBounds=nx<0||ny<0||nx>=n||ny>=n||(is3&&(nz<0||nz>=n));
+      const notWalkable=ST.walkable!==null&&!ST.walkable.has(nkc);
+      let hit=outOfBounds||notWalkable||ST.obstacles.has(nkc)||(is3&&ST.removedCells.has(nkc));
+      let nk=hit?k:nkc;
+      if(!hit&&ST.portals.has(nk)){const others=[...ST.portals].filter(p=>p!==nk);if(others.length>0){const dest=others[Math.floor(Math.random()*others.length)];const pts=dest.split(',').map(Number);nx=pts[0];ny=pts[1];nz=pts[2]||0;nk=dest;}}
+      let r=mc.livingPenalty,done=false;
+      if(ST.goals.has(nk)){r=ST.goals.get(nk);done=true;}
+      else if(hit){r=mc.wallPenalty;}
+      else if(ST.mud.has(nk)){r=mc.livingPenalty*3;}
+      else if(ST.fire.has(nk)){
+        r=mc.wallPenalty*3;
+        if(!ST.q[nk])ST.q[nk]=Array(na).fill(0);
+        const oldQ2=ST.q[k][action],maxNext2=Math.max(...ST.q[nk]),newQ2=oldQ2+mc.alpha*(r+mc.gamma*maxNext2-oldQ2);
+        ST.q[k][action]=newQ2;App.ui.showMath(oldQ2,r,maxNext2,newQ2,action,is3);
+        ST.pos={...ST.start};ST.steps++;ST.reward+=r;
+        if(ST.steps>=mc.maxSteps){this.endEpisode(false);return true;}
+        return false;
+      }
+      if(!ST.q[nk])ST.q[nk]=Array(na).fill(0);
+      const oldQ=ST.q[k][action],maxNext=Math.max(...ST.q[nk]),newQ=oldQ+mc.alpha*(r+mc.gamma*maxNext-oldQ);
+      ST.q[k][action]=newQ;App.ui.showMath(oldQ,r,maxNext,newQ,action,is3);
+      if(!hit)ST.pos=is3?{x:nx,y:ny,z:nz}:{x:nx,y:ny,z:0};
+      ST.steps++;ST.reward+=r;
+      if(done||ST.steps>=mc.maxSteps){if(done)ST.wins++;this.endEpisode(done);return true;}
+      return false;
+    },
+    chooseAction(k,n){if(!ST.q[k])ST.q[k]=Array(n).fill(0);if(Math.random()<MC().epsilon)return Math.floor(Math.random()*n);const qs=ST.q[k],max=Math.max(...qs),cands=qs.map((v,i)=>v===max?i:-1).filter(i=>i!==-1);return cands[Math.floor(Math.random()*cands.length)];},
+    endEpisode(ok){
+      const mc=MC();ST.episode++;ST.history.push({ep:ST.episode,r:ST.reward,s:ST.steps,w:ok?1:0});
+      if(!CFG.isTurbo||ST.episode%20===0)App.chart.update();
+      mc.epsilon=Math.max(.001,mc.epsilon*mc.epsilonDecay);
+      document.getElementById('inp-epsilon').value=mc.epsilon;document.getElementById('txt-epsilon').textContent=mc.epsilon.toFixed(3);document.getElementById('val-eps-live').textContent=mc.epsilon.toFixed(3);App.ui.setTS('ts-eps',mc.epsilon,'tsv-eps',mc.epsilon.toFixed(2));
+      ST.pos={...ST.start};ST.steps=0;ST.reward=0;ST.lastAction=null;
+      if(!CFG.isTurbo||ST.episode%20===0){if(CFG.mode==='2d')App.mode2d.draw();else App.mode3d.updateCellVisuals();}
+    },
+    reset(){
+      ST.pos={...ST.start};ST.steps=0;ST.reward=0;ST.lastAction=null;
+      App.ui.moveAgent();App.ui.updateStats();
+      if(CFG.mode==='2d')App.mode2d.draw();else App.mode3d.drawPath();
+    },
+    resetLearning(){
+      this.stop();ST.episode=0;ST.wins=0;ST.history=[];ST.envEvents=[];ST.q={};ST.visits={};
+      MC().epsilon=parseFloat(document.getElementById('inp-epsilon').value);
+      App.chart.reset();this.reset();
+      if(CFG.mode==='2d')App.mode2d.draw();else App.mode3d.updateCellVisuals();
+      App.ui.toast('Q-valeurs réinitialisées');
+    },
+    fullReset(){
+      this.stop();ST.obstacles.clear();ST.goals.clear();ST.mud.clear();ST.ice.clear();ST.fire.clear();ST.portals.clear();ST.removedCells.clear();ST.walkable=null;ST.q={};ST.visits={};ST.episode=0;ST.wins=0;ST.history=[];ST.envEvents=[];MC().epsilon=parseFloat(document.getElementById('inp-epsilon').value);App.chart.reset();
+      if(CFG.mode==='2d'){const n=CFG2D.size;ST.start={x:0,y:n-1,z:0};ST.goals.set(`${n-1},0`,MC().goalReward);App.mode2d.activate();}
+      else{const n=CFG3D.size;ST.start={x:0,y:n-1,z:0};ST.goals.set(`${n-1},0,${n-1}`,MC().goalReward);App.mode3d.activate();}
+      App.goalMgr.refresh();
+    }
+  },
+
+  setTool(t){
+    if(t==='heatmap'){ST.viewHeatmap=!ST.viewHeatmap;document.getElementById('t-heatmap').classList.toggle('active',ST.viewHeatmap);if(CFG.mode==='2d')App.mode2d.draw();else App.mode3d.updateCellVisuals();return;}
+    if(t==='policy'){ST.viewPolicy=!ST.viewPolicy;document.getElementById('t-policy').classList.toggle('active',ST.viewPolicy);if(CFG.mode==='2d')App.mode2d.draw();else App.mode3d.updateCellVisuals();return;}
+    ST.tool=t;
+    document.querySelectorAll('.t-btn').forEach(b=>{if(!['heatmap','policy'].includes(b.getAttribute('data-t')))b.classList.remove('active');});
+    const el=document.getElementById('t-'+t);if(el)el.classList.add('active');
+    App.ui.toast('Outil : '+t.toUpperCase());
+  },
+
+  generateMaze(){
+    const is3=CFG.mode==='3d',n=is3?CFG3D.size:CFG2D.size;
+    const wPct=parseInt(document.getElementById('gen-walls').value)/100;
+    const mPct=parseInt(document.getElementById('gen-mud').value)/100;
+    const iPct=parseInt(document.getElementById('gen-ice').value)/100;
+    const fPct=parseInt(document.getElementById('gen-fire').value)/100;
+    const pCount=parseInt(document.getElementById('gen-portal').value);
+    ST.obstacles.clear();ST.mud.clear();ST.ice.clear();ST.fire.clear();ST.portals.clear();
+    const cells=[];const walkSet=ST.walkable;
+    if(is3){for(let x=0;x<n;x++)for(let y=0;y<n;y++)for(let z=0;z<n;z++)if(!ST.removedCells.has(`${x},${y},${z}`))cells.push(`${x},${y},${z}`);}
+    else{for(let y=0;y<n;y++)for(let x=0;x<n;x++){const k=`${x},${y}`;if(walkSet===null||walkSet.has(k))cells.push(k);}}
+    shuffle(cells);
+    const goalKeys=new Set(ST.goals.keys());
+    const startK=is3?`${ST.start.x},${ST.start.y},${ST.start.z}`:`${ST.start.x},${ST.start.y}`;
+    let wi=0,mi=0,ii=0,fi=0;
+    const nW=Math.floor(cells.length*wPct),nM=Math.floor(cells.length*mPct),nI=Math.floor(cells.length*iPct),nF=Math.floor(cells.length*fPct);
+    for(const k of cells){
+      if(goalKeys.has(k)||k===startK)continue;
+      if(wi<nW){ST.obstacles.add(k);wi++;}
+      else if(mi<nM){ST.mud.add(k);mi++;}
+      else if(ii<nI){ST.ice.add(k);ii++;}
+      else if(fi<nF){ST.fire.add(k);fi++;}
+      if(wi>=nW&&mi>=nM&&ii>=nI&&fi>=nF)break;
+    }
+    const free=cells.filter(k=>!ST.obstacles.has(k)&&!goalKeys.has(k)&&k!==startK&&!ST.mud.has(k)&&!ST.ice.has(k)&&!ST.fire.has(k));
+    for(let i=0;i<pCount*2&&i+1<free.length;i+=2){ST.portals.add(free[i]);ST.portals.add(free[i+1]);}
+    ST.envEvents.push({ep:ST.episode,label:'Gen'});App.chart.update();
+    App.ui.toast('Obstacles générés !');
+    if(is3){App.mode3d.updateCellVisuals();App.mode3d.drawPath();App.mode3d.buildPortalRings();}
+    else App.mode2d.draw();
+  },
+
+  goalMgr:{
+    refresh(){
+      const list=document.getElementById('goals-list');list.innerHTML='';
+      ST.goals.forEach((rw,k)=>{
+        const d=document.createElement('div');d.className='goal-item';
+        d.innerHTML=`<span class="goal-item-pos">${k}</span><span class="goal-item-rw">${rw}</span><button class="goal-item-del" onclick="App.goalMgr.remove('${k}')"><i class="fa fa-times"></i></button>`;
+        list.appendChild(d);
+      });
+    },
+    remove(k){ST.goals.delete(k);this.refresh();if(CFG.mode==='2d')App.mode2d.draw();else App.mode3d.updateCellVisuals();},
+    addDefault(){
+      const n=CFG.mode==='2d'?CFG2D.size:CFG3D.size;
+      for(let tries=0;tries<200;tries++){
+        let k;
+        if(CFG.mode==='2d'){const x=Math.floor(Math.random()*n),y=Math.floor(Math.random()*n);k=`${x},${y}`;}
+        else{const x=Math.floor(Math.random()*n),y=Math.floor(Math.random()*n),z=Math.floor(Math.random()*n);k=`${x},${y},${z}`;}
+        if(!ST.goals.has(k)&&!ST.obstacles.has(k)){ST.goals.set(k,MC().goalReward);this.refresh();if(CFG.mode==='2d')App.mode2d.draw();else App.mode3d.updateCellVisuals();App.ui.toast('Goal ajouté : '+k);return;}
+      }
+    }
+  },
+
+  ui:{
+    toggleSidebar(){const sb=document.getElementById('sidebar');sb.classList.toggle('collapsed');if(window.innerWidth<=860)document.getElementById('sb-backdrop').classList.toggle('show',!sb.classList.contains('collapsed'));},
+    toggleGraph(){document.getElementById('hud').classList.toggle('graph-hidden');},
+    toggleAcc(id){document.getElementById(id).classList.toggle('open');},
+    setToolbarLayout(val){
+      document.getElementById('toolbar').className=val==='tb-vert'?'tb-vert':'tb-horiz';
+    },
+    moveAgent(){
+      if(CFG.mode==='2d'){
+        if(App.mode2d._view3d&&App.mode2d._3dAgent){
+          App.mode2d._3dAgent.position.set(ST.pos.x+.5,.85,ST.pos.y+.5);
+          if(!CFG.isTurbo||ST.steps%10===0)App.mode2d._draw3DFlatPath(CFG2D.size);
+        }else App.mode2d.draw();
+      }else App.mode3d.moveAgentVisual();
+    },
+    updateStats(){
+      document.getElementById('val-ep').textContent=ST.episode;document.getElementById('val-steps').textContent=ST.steps;document.getElementById('val-reward').textContent=Math.round(ST.reward);document.getElementById('val-success').textContent=ST.episode>0?Math.round(ST.wins/ST.episode*100)+'%':'0%';document.getElementById('val-eps-live').textContent=MC().epsilon.toFixed(3);
+      if(ST.history.length>0){document.getElementById('val-avg-steps').textContent=(ST.history.reduce((a,b)=>a+b.s,0)/ST.history.length).toFixed(1);document.getElementById('val-avg-reward').textContent=(ST.history.reduce((a,b)=>a+b.r,0)/ST.history.length).toFixed(1);}
+    },
+    setTS(id,pct,vid,txt){const el=document.getElementById(id);if(!el)return;el.querySelector('.ts-fill').style.width=(Math.max(0,Math.min(1,pct))*100)+'%';if(vid){const v=document.getElementById(vid);if(v)v.textContent=txt;}},
+    initTouchSliders(){
+      const defs=[{id:'ts-spd',inp:'inp-speed',min:1,max:200},{id:'ts-eps',inp:'inp-epsilon',min:0,max:1},{id:'ts-alp',inp:'inp-alpha',min:0,max:1},{id:'ts-gam',inp:'inp-gamma',min:0,max:1}];
+      defs.forEach(d=>{
+        const el=document.getElementById(d.id),inp=document.getElementById(d.inp);
+        const move=e=>{e.preventDefault();const r=el.getBoundingClientRect(),cx=e.touches?e.touches[0].clientX:e.clientX;inp.value=d.min+Math.max(0,Math.min(1,(cx-r.left)/r.width))*(d.max-d.min);App.cfg.update(inp);};
+        el.addEventListener('mousedown',e=>{move(e);const mm=e=>move(e);document.addEventListener('mousemove',mm);document.addEventListener('mouseup',()=>document.removeEventListener('mousemove',mm),{once:true});});
+        el.addEventListener('touchstart',move,{passive:false});el.addEventListener('touchmove',move,{passive:false});
+      });
+    },
+    toast(msg,dur=2000){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(this._tt);this._tt=setTimeout(()=>el.classList.remove('show'),dur);},
+    showMath(oQ,r,mN,nQ,a,is3){
+      const dirs=is3?['+X','-X','+Y','-Y','+Z','-Z']:['↑','→','↓','←'];
+      document.getElementById('math-disp').innerHTML=`Q[${dirs[a]}] = <span style="color:var(--muted)">${oQ.toFixed(2)}</span> + <span style="color:#ec4899">${MC().alpha}</span>(<span style="color:var(--success)">${r}</span> + <span style="color:var(--primary)">${MC().gamma}</span>·<span style="color:var(--warn)">${mN.toFixed(2)}</span> − ${oQ.toFixed(2)}) = <b style="color:var(--accent)">${nQ.toFixed(3)}</b>`;
+    }
+  },
+
+  goalEditor:{
+    _k:null,_mode:'2d3d',
+    open(k,mx,my,mode='2d3d'){
+      this._k=k;this._mode=mode;
+      let val=ST.goals.get(k)||100;
+      const ed=document.getElementById('goal-editor');
+      document.getElementById('ge-slider').value=val;document.getElementById('ge-val').textContent=val;document.getElementById('ge-pos').textContent=k;
+      const W=window.innerWidth,H=window.innerHeight;let lx=mx||W/2-90,ly=my||H/2-70;
+      if(lx+185>W)lx=W-190;if(ly+130>H)ly=H-135;
+      ed.style.left=lx+'px';ed.style.top=ly+'px';ed.style.display='flex';
+    },
+    update(v){
+      if(!this._k)return;
+      ST.goals.set(this._k,parseInt(v));App.goalMgr.refresh();if(CFG.mode==='2d')App.mode2d.draw();else App.mode3d.drawPath();
+      document.getElementById('ge-val').textContent=v;
+    },
+    close(){document.getElementById('goal-editor').style.display='none';this._k=null;}
+  },
+
+  // ════════════════════════════════════════════════════════
+  // MODE 2D
+  // ════════════════════════════════════════════════════════
+  mode2d:{
+    isPainting:false,_lastPaintKey:null,_offscreen:null,
+    init(){},
+    activate(){
+      const n=CFG2D.size;ST.start={x:0,y:n-1,z:0};
+      if(!ST.goals.size)ST.goals.set(`${n-1},0`,MC().goalReward);
+      ST.pos={...ST.start};ST.walkable=null;
+      this.setupCanvas();App.goalMgr.refresh();
+    },
+    setupCanvas(){
+      const cv=document.getElementById('canvas2d');const cont=document.getElementById('stage-2d');
+      const s=Math.min(cont.clientWidth-28,cont.clientHeight-28,600);
+      cv.width=Math.floor(s);cv.height=Math.floor(s);
+      Tex.clearSizeCache();
+      this.setupEvents(cv);this.draw();
+    },
+    setupEvents(cv){
+      cv.onmousedown=e=>{if(e.button===2)return;e.stopPropagation();this.isPainting=true;this._lastPaintKey=null;this.handlePaint(e);};
+      cv.ontouchstart=e=>{e.stopPropagation();this.isPainting=true;this._lastPaintKey=null;this.handlePaint(e);};
+      cv.onmousemove=e=>{if(this.isPainting)this.handlePaint(e);};
+      cv.ontouchmove=e=>{if(this.isPainting)this.handlePaint(e);};
+      document.addEventListener('mouseup',()=>{this.isPainting=false;this._lastPaintKey=null;},{passive:true});
+      document.addEventListener('touchend',()=>{this.isPainting=false;this._lastPaintKey=null;},{passive:true});
+      cv.addEventListener('contextmenu',e=>{e.preventDefault();const kv=this.eventToKey(e);if(kv&&ST.goals.has(kv))App.goalEditor.open(kv,e.clientX,e.clientY);});
+    },
+    eventToKey(e){
+      const cv=document.getElementById('canvas2d');const n=CFG2D.size;const r=cv.getBoundingClientRect();
+      const cx=((e.touches?e.touches[0].clientX:e.clientX)-r.left)/r.width;const cy=((e.touches?e.touches[0].clientY:e.clientY)-r.top)/r.height;
+      if(cx<0||cx>1||cy<0||cy>1)return null;
+      const x=Math.floor(cx*n),y=Math.floor(cy*n);if(x<0||y<0||x>=n||y>=n)return null;
+      return`${x},${y}`;
+    },
+    handlePaint(e){const k=this.eventToKey(e);if(!k)return;if(k===this._lastPaintKey)return;this._lastPaintKey=k;const[x,y]=k.split(',').map(Number);this.applyTool(x,y);},
+    applyTool(x,y){
+      const k=`${x},${y}`,t=ST.tool;
+      if(ST.walkable!==null&&!ST.walkable.has(k))return;
+      if(t==='view'||t==='heatmap'||t==='policy')return;
+      App.goalEditor.close();
+      const clr=()=>{ST.obstacles.delete(k);ST.goals.delete(k);ST.mud.delete(k);ST.ice.delete(k);ST.fire.delete(k);ST.portals.delete(k);};
+      if(t==='wall'){if(!ST.obstacles.has(k)){clr();ST.obstacles.add(k);}}
+      else if(t==='goal'){clr();ST.goals.set(k,MC().goalReward);App.goalMgr.refresh();}
+      else if(t==='mud'){if(!ST.mud.has(k)){clr();ST.mud.add(k);}}
+      else if(t==='ice'){if(!ST.ice.has(k)){clr();ST.ice.add(k);}}
+      else if(t==='fire'){if(!ST.fire.has(k)){clr();ST.fire.add(k);}}
+      else if(t==='portal'){if(!ST.portals.has(k)){clr();ST.portals.add(k);}}
+      else if(t==='start'){ST.start={x,y,z:0};clr();if(!ST.running){ST.pos={x,y,z:0};}}
+      else if(t==='eraser'){clr();ST.q[k]=Array(4).fill(0);}
+      if(t!=='eraser'&&t!=='view')ST.envEvents.push({ep:ST.episode,label:t});
+      this.draw();App.chart.update();
+    },
+    resizeDebounced(v){clearTimeout(this._rt);document.getElementById('txt-size2d').textContent=`${v}×${v}`;this._rt=setTimeout(()=>{CFG2D.size=parseInt(v);App.core.fullReset();},400);},
+    onResize(){if(CFG.mode==='2d'){if(this._view3d)this._resize3D();else this.setupCanvas();}},
+
+    _view3d:false,_3dScene:null,_3dCamera:null,_3dRenderer:null,_3dControls:null,_3dMeshes:{},_3dAgent:null,_3dReady:false,_3dAnim:null,
+    toggle3DView(){
+      this._view3d=!this._view3d;
+      const cv=document.getElementById('canvas2d');const cont3d=document.getElementById('stage-2d-3d');const btn=document.getElementById('btn-2d3d');const lbl=document.getElementById('lbl-2d3d');
+      if(this._view3d){cv.style.display='none';cont3d.style.display='block';btn.classList.add('active');lbl.textContent='2D View';if(!this._3dReady)this._init3DFlat();else this._rebuild3DFlat();this._start3DLoop();}
+      else{cv.style.display='block';cont3d.style.display='none';btn.classList.remove('active');lbl.textContent='3D View';cancelAnimationFrame(this._3dAnim);this._3dAnim=null;this.draw();}
+    },
+    _init3DFlat(){
+      const cont=document.getElementById('stage-2d-3d');
+      this._3dScene=new THREE.Scene();this._3dScene.background=new THREE.Color(0x060a12);this._3dScene.fog=new THREE.FogExp2(0x060a12,.025);
+      const W=cont.clientWidth||500,H=cont.clientHeight||500;
+      this._3dCamera=new THREE.PerspectiveCamera(45,W/H,.1,200);
+      const n=CFG2D.size;this._3dCamera.position.set(n*.5,n*1.2,n*1.0);this._3dCamera.lookAt(n*.5,0,n*.5);
+      this._3dRenderer=new THREE.WebGLRenderer({antialias:true});this._3dRenderer.setSize(W,H);this._3dRenderer.setPixelRatio(Math.min(devicePixelRatio,2));
+      cont.innerHTML='';cont.appendChild(this._3dRenderer.domElement);
+      this._3dControls=new THREE.OrbitControls(this._3dCamera,this._3dRenderer.domElement);this._3dControls.enableDamping=true;this._3dControls.dampingFactor=.06;this._3dControls.target.set(n*.5,0,n*.5);
+      this._3dScene.add(new THREE.AmbientLight(0xffffff,.55));const dl=new THREE.DirectionalLight(0xffffff,.9);dl.position.set(n,n*2,n);this._3dScene.add(dl);
+      const aM=new THREE.MeshStandardMaterial({color:0x7c3aed,emissive:0x4f46e5,emissiveIntensity:.8});this._3dAgent=new THREE.Mesh(new THREE.SphereGeometry(.32,16,16),aM);this._3dScene.add(this._3dAgent);
+      this._3dPathLines=[];this._3dRaycaster=new THREE.Raycaster();this._3dMouse=new THREE.Vector2();this._3dIsPainting=false;this._3dLastPaintKey=null;
+      const dom=this._3dRenderer.domElement;
+      const shouldPaint=()=>ST.tool!=='view'&&ST.tool!=='heatmap'&&ST.tool!=='policy';
+      dom.addEventListener('pointerdown',e=>{if(e.button!==0)return;if(shouldPaint()){this._3dControls.enabled=false;this._3dIsPainting=true;this._3dLastPaintKey=null;this._3dHandlePaint(e);}});
+      dom.addEventListener('pointermove',e=>{if(this._3dIsPainting&&shouldPaint())this._3dHandlePaint(e);});
+      dom.addEventListener('pointerup',()=>{this._3dIsPainting=false;this._3dLastPaintKey=null;this._3dControls.enabled=true;});
+      dom.addEventListener('contextmenu',e=>{e.preventDefault();const cell=this._3dPickCell(e);if(cell){const k=`${cell.x},${cell.y}`;if(ST.goals.has(k))App.goalEditor.open(k,e.clientX,e.clientY);}});
+      this._3dReady=true;window.addEventListener('resize',()=>this._resize3D());this._rebuild3DFlat();
+    },
+    _3dPickCell(e){if(!this._3dRenderer||!this._3dCamera)return null;const rect=this._3dRenderer.domElement.getBoundingClientRect();this._3dMouse.x=((e.clientX-rect.left)/rect.width)*2-1;this._3dMouse.y=-((e.clientY-rect.top)/rect.height)*2+1;this._3dRaycaster.setFromCamera(this._3dMouse,this._3dCamera);const objs=Object.values(this._3dMeshes).filter(Boolean);const hits=this._3dRaycaster.intersectObjects(objs);if(hits.length>0&&hits[0].object.userData.gridKey){const[x,y]=hits[0].object.userData.gridKey.split(',').map(Number);return{x,y};}return null;},
+    _3dHandlePaint(e){const cell=this._3dPickCell(e);if(!cell)return;const k=`${cell.x},${cell.y}`;if(k===this._3dLastPaintKey)return;this._3dLastPaintKey=k;App.mode2d.applyTool(cell.x,cell.y);},
+    _resize3D(){const cont=document.getElementById('stage-2d-3d');if(!cont.clientWidth||!this._3dRenderer)return;this._3dRenderer.setSize(cont.clientWidth,cont.clientHeight);this._3dCamera.aspect=cont.clientWidth/cont.clientHeight;this._3dCamera.updateProjectionMatrix();},
+    _rebuild3DFlat(){
+      if(!this._3dScene)return;
+      Object.values(this._3dMeshes).forEach(m=>{this._3dScene.remove(m);m.geometry&&m.geometry.dispose();m.material&&m.material.dispose();});this._3dMeshes={};
+      if(this._3dPathLines){this._3dPathLines.forEach(l=>{this._3dScene.remove(l);l.geometry&&l.geometry.dispose();l.material&&l.material.dispose();});this._3dPathLines=[];}else this._3dPathLines=[];
+      const n=CFG2D.size,gap=.04,maxV=Math.max(...Object.values(ST.visits),1);
+      const bG=new THREE.BoxGeometry(1-gap,1,1-gap);
+      for(let y=0;y<n;y++)for(let x=0;x<n;x++){
+        const k=`${x},${y}`;if(ST.walkable!==null&&!ST.walkable.has(k))continue;
+        let texName='empty',h=.07;const matOpts={map:Tex._3d(texName)};
+        if(ST.obstacles.has(k)){texName='wall';h=1.2;}
+        else if(ST.goals.has(k)){texName='goal';h=.12;matOpts.emissive=new THREE.Color(0,1,.5);matOpts.emissiveIntensity=.4;matOpts.transparent=true;matOpts.opacity=.92;matOpts.depthWrite=true;}
+        else if(ST.start.x===x&&ST.start.y===y){texName='start';h=.1;}
+        else if(ST.mud.has(k)){texName='mud';h=.08;}
+        else if(ST.ice.has(k)){texName='ice';h=.06;matOpts.transparent=true;matOpts.opacity=.9;}
+        else if(ST.fire.has(k)){texName='fire';h=.35;matOpts.emissive=new THREE.Color(1,.3,0);matOpts.emissiveIntensity=.65;}
+        else if(ST.portals.has(k)){texName='portal';h=.18;matOpts.emissive=new THREE.Color(.3,0,.8);matOpts.emissiveIntensity=.5;matOpts.transparent=true;matOpts.opacity=.8;}
+        matOpts.map=Tex._3d(texName);
+        const mat=new THREE.MeshStandardMaterial(matOpts);
+        const mesh=new THREE.Mesh(bG,mat);mesh.scale.y=Math.max(.02,h);mesh.position.set(x+.5,mesh.scale.y*.5,y+.5);mesh.userData.gridKey=k;this._3dScene.add(mesh);this._3dMeshes[k]=mesh;
+      }
+      if(this._3dAgent)this._3dAgent.position.set(ST.pos.x+.5,.85,ST.pos.y+.5);
+      this._draw3DFlatPath(n);
+    },
+    _draw3DFlatPath(n){
+      if(this._3dPathLines){this._3dPathLines.forEach(l=>{this._3dScene.remove(l);l.geometry&&l.geometry.dispose();l.material&&l.material.dispose();});}this._3dPathLines=[];
+      if(ST.hideQColors)return;
+      const cellTop=(x,y)=>{const k=`${x},${y}`;const m=this._3dMeshes[k];const topY=m?(m.scale.y+.05):.15;return new THREE.Vector3(x+.5,topY,y+.5);};
+      let cx=ST.start.x,cy=ST.start.y;const vis=new Set([`${cx},${cy}`]);let segments=[[cellTop(cx,cy)]];
+      for(let i=0;i<n*n;i++){
+        const k=`${cx},${cy}`;if(ST.goals.has(k))break;const qs=ST.q[k];if(!qs)break;const mQ=Math.max(...qs);if(Math.abs(mQ)<.05)break;
+        const a=qs.indexOf(mQ);let nx=cx,ny=cy;if(a===0)ny--;else if(a===1)nx++;else if(a===2)ny++;else nx--;
+        if(nx<0||ny<0||nx>=n||ny>=n||ST.obstacles.has(`${nx},${ny}`))break;
+        const nk=`${nx},${ny}`;if(vis.has(nk))break;vis.add(nk);cx=nx;cy=ny;segments[segments.length-1].push(cellTop(cx,cy));
+      }
+      segments.forEach(pts=>{if(pts.length<2)return;const g=new THREE.BufferGeometry().setFromPoints(pts);const l=new THREE.Line(g,new THREE.LineBasicMaterial({color:0x00ff88,linewidth:2,depthTest:false}));this._3dScene.add(l);this._3dPathLines.push(l);});
+    },
+    _start3DLoop(){if(this._3dAnim)return;const loop=()=>{this._3dAnim=requestAnimationFrame(loop);if(this._3dControls)this._3dControls.update();if(this._3dRenderer&&this._3dScene&&this._3dCamera)this._3dRenderer.render(this._3dScene,this._3dCamera);};loop();},
+
+    draw(){
+      if(this._view3d){this._rebuild3DFlat();return;}
+      const cv=document.getElementById('canvas2d');if(!cv||!cv.width)return;
+      const ctx=cv.getContext('2d');const n=CFG2D.size,W=cv.width,H=cv.height,cw=W/n,ch=H/n;
+      ctx.clearRect(0,0,W,H);ctx.fillStyle='rgba(6,10,18,.95)';ctx.fillRect(0,0,W,H);
+      const maxV=Math.max(...Object.values(ST.visits),1);
+      for(let y=0;y<n;y++)for(let x=0;x<n;x++){
+        const k=`${x},${y}`,cx0=x*cw,cy0=y*ch;
+        if(ST.walkable!==null&&!ST.walkable.has(k)){ctx.fillStyle='#0a0e1a';ctx.fillRect(cx0,cy0,cw,ch);continue;}
+        this._drawCell(ctx,k,x,y,cw,ch,cx0,cy0,maxV,n);
+      }
+      this.drawAgent(ctx,cw,ch);this.drawPath(ctx,cw,ch,n);
+      ctx.strokeStyle='rgba(255,255,255,.04)';ctx.lineWidth=.5;
+      for(let i=0;i<=n;i++){ctx.beginPath();ctx.moveTo(i*cw,0);ctx.lineTo(i*cw,H);ctx.stroke();ctx.beginPath();ctx.moveTo(0,i*ch);ctx.lineTo(W,i*ch);ctx.stroke();}
+    },
+    _drawCell(ctx,k,x,y,cw,ch,cx0,cy0,maxV,n){
+      if(ST.obstacles.has(k)){Tex.draw2d(ctx,'wall',cx0,cy0,cw,ch);return;}
+      if(ST.goals.has(k)){Tex.draw2d(ctx,'goal',cx0,cy0,cw,ch);const rw=ST.goals.get(k);if(cw>16){ctx.save();ctx.globalAlpha=.92;ctx.fillStyle='rgba(0,20,10,.7)';const pr=Math.max(6,Math.min(12,cw*.35));ctx.beginPath();ctx.roundRect(cx0+cw*.5-pr*1.5,cy0+ch*.72,pr*3,pr*1.3,3);ctx.fill();ctx.fillStyle='#afffcc';ctx.font=`bold ${pr}px JetBrains Mono,monospace`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(rw,cx0+cw/2,cy0+ch*.8);ctx.restore();}return;}
+      if(ST.start.x===x&&ST.start.y===y){Tex.draw2d(ctx,'start',cx0,cy0,cw,ch);return;}
+      if(ST.mud.has(k))Tex.draw2d(ctx,'mud',cx0,cy0,cw,ch);
+      else if(ST.ice.has(k))Tex.draw2d(ctx,'ice',cx0,cy0,cw,ch);
+      else if(ST.fire.has(k))Tex.draw2d(ctx,'fire',cx0,cy0,cw,ch);
+      else if(ST.portals.has(k))Tex.draw2d(ctx,'portal',cx0,cy0,cw,ch);
+      else Tex.draw2d(ctx,'empty',cx0,cy0,cw,ch);
+      const isSpecial=ST.mud.has(k)||ST.ice.has(k)||ST.fire.has(k)||ST.portals.has(k);
+      if(ST.viewHeatmap&&!isSpecial){const v=ST.visits[k]||0;if(v>0){const t=Math.min(v/maxV,1);ctx.fillStyle=heatColor(t);ctx.globalAlpha=.5;ctx.fillRect(cx0,cy0,cw,ch);ctx.globalAlpha=1;}}
+      if(ST.viewPolicy&&!isSpecial){const qs=ST.q[k]||[0,0,0,0];const mx=Math.max(...qs);if(Math.abs(mx)>.05){const a=qs.indexOf(mx);const dirs=[[0,-1],[1,0],[0,1],[-1,0]];const[dx,dy]=dirs[a];const ax=cx0+cw/2,ay=cy0+ch/2,al=Math.min(cw,ch)*.32;ctx.save();ctx.globalAlpha=.92;ctx.strokeStyle='rgba(250,204,21,.95)';ctx.fillStyle='rgba(250,204,21,.95)';ctx.lineWidth=Math.max(1.2,cw*.08);ctx.beginPath();ctx.moveTo(ax-dx*al*.55,ay-dy*al*.55);ctx.lineTo(ax+dx*al*.45,ay+dy*al*.45);ctx.stroke();const ang=Math.atan2(dy,dx);ctx.translate(ax+dx*al*.45,ay+dy*al*.45);ctx.rotate(ang);ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(-al*.38,-al*.2);ctx.lineTo(-al*.38,al*.2);ctx.closePath();ctx.fill();ctx.restore();}}
+      if(!ST.hideQColors&&!ST.viewHeatmap&&!ST.viewPolicy&&!isSpecial){const q=ST.q[k]||[0,0,0,0];const mx=Math.max(...q);if(mx>0.5){ctx.fillStyle=`rgba(16,185,129,${Math.min(mx/100,.5)})`;ctx.fillRect(cx0,cy0,cw,ch);}else if(mx<-0.5){ctx.fillStyle=`rgba(244,63,94,${Math.min(Math.abs(mx)/20,.42)})`;ctx.fillRect(cx0,cy0,cw,ch);}if(cw>26&&n<=20){const offs=[[0,-1],[1,0],[0,1],[-1,0]];ctx.font=`${Math.max(5,Math.min(8,cw*.28))}px JetBrains Mono,monospace`;ctx.textBaseline='middle';ctx.textAlign='center';offs.forEach(([odx,ody],i)=>{if(Math.abs(q[i])<.05)return;ctx.fillStyle=q[i]>0?'rgba(100,255,150,.8)':'rgba(255,100,100,.8)';ctx.fillText(Math.round(q[i]),cx0+cw/2+odx*cw*.3,cy0+ch/2+ody*ch*.3);});}}
+    },
+    drawAgent(ctx,cw,ch){
+      const x=ST.pos.x,y=ST.pos.y;const ax=x*cw+cw/2,ay=y*ch+ch/2,r=Math.max(3,Math.min(cw,ch)*.28);
+      ctx.save();const grd=ctx.createRadialGradient(ax,ay,0,ax,ay,r*2.2);grd.addColorStop(0,'rgba(124,58,237,.45)');grd.addColorStop(1,'rgba(124,58,237,0)');ctx.fillStyle=grd;ctx.beginPath();ctx.arc(ax,ay,r*2.2,0,Math.PI*2);ctx.fill();ctx.fillStyle='#ffffff';ctx.beginPath();ctx.arc(ax,ay,r,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#7c3aed';ctx.lineWidth=r*.5;ctx.stroke();ctx.restore();
+    },
+    drawPath(ctx,cw,ch,n){
+      if(ST.hideQColors)return;
+      let cx=ST.start.x,cy=ST.start.y;const vis=new Set([`${cx},${cy}`]);let segments=[[[cx*cw+cw/2,cy*ch+ch/2]]];
+      for(let i=0;i<n*n;i++){
+        const k=`${cx},${cy}`;if(ST.goals.has(k))break;const qs=ST.q[k];if(!qs)break;const mQ=Math.max(...qs);if(Math.abs(mQ)<.05)break;
+        const a=qs.indexOf(mQ);let nx=cx,ny=cy;if(a===0)ny--;else if(a===1)nx++;else if(a===2)ny++;else nx--;
+        if(nx<0||ny<0||nx>=n||ny>=n||ST.obstacles.has(`${nx},${ny}`))break;
+        const nk=`${nx},${ny}`;if(vis.has(nk))break;vis.add(nk);
+        if(ST.portals.has(nk)){segments[segments.length-1].push([nx*cw+cw/2,ny*ch+ch/2]);const others=[...ST.portals].filter(p=>p!==nk);if(others.length>0){const[px,py]=others[0].split(',').map(Number);cx=px;cy=py;segments.push([[cx*cw+cw/2,cy*ch+ch/2]]);}else break;continue;}
+        cx=nx;cy=ny;segments[segments.length-1].push([cx*cw+cw/2,cy*ch+ch/2]);
+      }
+      ctx.save();ctx.strokeStyle='rgba(0,255,136,.85)';ctx.lineWidth=Math.max(1.5,cw*.1);ctx.lineCap='round';ctx.lineJoin='round';ctx.shadowColor='#00ff88';ctx.shadowBlur=6;
+      segments.forEach(seg=>{if(seg.length<2)return;ctx.beginPath();seg.forEach(([px,py],i)=>i===0?ctx.moveTo(px,py):ctx.lineTo(px,py));ctx.stroke();});
+      ctx.restore();
+    },
+  },
+
+  // ════════════════════════════════════════════════════════
+  // MODE 3D
+  // ════════════════════════════════════════════════════════
+  mode3d:{
+    scene:null,camera:null,renderer:null,controls:null,meshes:[],agentMesh:null,pathLine:null,cursorMesh:null,portalRings:[],policyArrows:[],raycaster:null,mouse:null,cursor:{x:0,y:0,z:0,active:false},_ready:false,showCubes:true,
+    init(){this.raycaster=new THREE.Raycaster();this.mouse=new THREE.Vector2();},
+    activate(){const n=CFG3D.size;ST.start={x:0,y:n-1,z:0};if(!ST.goals.size)ST.goals.set(`${n-1},0,${n-1}`,MC().goalReward);ST.pos={...ST.start};if(!this._ready){this._initThree();this._ready=true;}else this.rebuild();App.goalMgr.refresh();},
+    _initThree(){
+      const cont=document.getElementById('stage-3d');this.scene=new THREE.Scene();this.scene.background=new THREE.Color(0x020409);this.scene.fog=new THREE.FogExp2(0x020409,.03);this.camera=new THREE.PerspectiveCamera(45,cont.clientWidth/cont.clientHeight,.1,500);this.camera.position.set(14,11,14);this.renderer=new THREE.WebGLRenderer({antialias:true});this.renderer.setSize(cont.clientWidth,cont.clientHeight);this.renderer.setPixelRatio(Math.min(devicePixelRatio,2));cont.appendChild(this.renderer.domElement);this.controls=new THREE.OrbitControls(this.camera,this.renderer.domElement);this.controls.enableDamping=true;this.controls.dampingFactor=.06;
+      this.scene.add(new THREE.AmbientLight(0xffffff,.5));const dl=new THREE.DirectionalLight(0xffffff,.9);dl.position.set(8,12,6);this.scene.add(dl);const dl2=new THREE.DirectionalLight(0x4466ff,.3);dl2.position.set(-8,-5,-6);this.scene.add(dl2);
+      const cG=new THREE.BoxGeometry(1.05,1.05,1.05);this.cursorMesh=new THREE.LineSegments(new THREE.EdgesGeometry(cG),new THREE.LineBasicMaterial({color:0x00ffff}));this.cursorMesh.visible=false;this.scene.add(this.cursorMesh);
+      this.renderer.domElement.addEventListener('pointerdown',e=>this._onClick(e));this.renderer.domElement.addEventListener('contextmenu',e=>{e.preventDefault();this._onRightClick(e);});
+      window.addEventListener('resize',()=>{const el=document.getElementById('stage-3d');if(!el.clientWidth)return;this.camera.aspect=el.clientWidth/el.clientHeight;this.camera.updateProjectionMatrix();this.renderer.setSize(el.clientWidth,el.clientHeight);});
+      const tick=()=>{requestAnimationFrame(tick);this.controls.update();if(this.cursor.active){const t=Date.now()*.003;this.cursorMesh.material.color.setHSL(.5,.9,.5+.2*Math.sin(t));}this.portalRings.forEach((r,i)=>{const t=Date.now()*.001;r.rotation.y=t*(1+(i%3)*.3);r.rotation.x=t*.4*(i%2?1:-1);});this.renderer.render(this.scene,this.camera);};tick();this.rebuild();
+    },
+    toggleCubes(){this.showCubes=!this.showCubes;document.getElementById('btn-cubes').classList.toggle('active',this.showCubes);this.updateCellVisuals();},
+    cellPos(x,y,z){const o=(CFG3D.size-1)/2;return new THREE.Vector3(x-o,-(y-o),z-o);},
+    rebuild(){
+      this.meshes.forEach(l=>l&&l.forEach(r=>r&&r.forEach(m=>{if(m){this.scene.remove(m);m.geometry.dispose();m.material.dispose();}})));if(this.agentMesh)this.scene.remove(this.agentMesh);if(this.pathLine){this.scene.remove(this.pathLine);this.pathLine=null;}this.clearPortalRings();this.clearPolicyArrows();this.meshes=[];
+      const n=CFG3D.size,gap=.06;const bG=new THREE.BoxGeometry(1-gap,1-gap,1-gap);const eG=new THREE.EdgesGeometry(bG);
+      for(let x=0;x<n;x++){this.meshes[x]=[];for(let y=0;y<n;y++){this.meshes[x][y]=[];for(let z=0;z<n;z++){
+        const mat=new THREE.MeshStandardMaterial({color:0x1e293b,transparent:true,opacity:.08,depthWrite:false});const mesh=new THREE.Mesh(bG,mat);mesh.position.copy(this.cellPos(x,y,z));mesh.userData={x,y,z};
+        const edge=new THREE.LineSegments(eG,new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:.04}));mesh.add(edge);this.scene.add(mesh);this.meshes[x][y][z]=mesh;
+        if(!ST.q[`${x},${y},${z}`])ST.q[`${x},${y},${z}`]=Array(6).fill(0);
+      }}}
+      const aM=new THREE.MeshStandardMaterial({color:0x7c3aed,emissive:0x4f46e5,emissiveIntensity:.8,roughness:.3});this.agentMesh=new THREE.Mesh(new THREE.SphereGeometry(.3,16,16),aM);this.scene.add(this.agentMesh);
+      this.moveAgentVisual();this.updateCellVisuals();this.buildPortalRings();
+    },
+    resizeDebounced(v){clearTimeout(this._rt);document.getElementById('txt-size3d').textContent=`${v}×${v}×${v}`;this._rt=setTimeout(()=>{CFG3D.size=parseInt(v);ST.removedCells.clear();App.core.fullReset();},400);},
+    generateShape(){
+      const n=CFG3D.size;const type=document.getElementById('gen-shape-type').value;const density=parseInt(document.getElementById('gen-density').value)/100;ST.removedCells.clear();
+      for(let x=0;x<n;x++)for(let y=0;y<n;y++)for(let z=0;z<n;z++){
+        const k=`${x},${y},${z}`;if(ST.obstacles.has(k)||ST.goals.has(k))continue;
+        const rx=(x/(n-1))-.5,ry=(y/(n-1))-.5,rz=(z/(n-1))-.5;let keep=true;
+        if(type==='blob'){const noise=Math.sin(x*.8)*Math.cos(y*.7)*Math.sin(z*.9)*.25+Math.random()*.15;keep=(rx*rx+ry*ry+rz*rz)<=(.2+density*.15+noise);}
+        else if(type==='tunnel'){keep=(rx*rx+rz*rz<.06*density)||(rx*rx+ry*ry<.06*density)||Math.random()<.08;}
+        else if(type==='layers'){const layer=Math.floor(y/(n/Math.max(3,Math.floor(density*6))));keep=(layer%2===0)||Math.random()<.15;}
+        else{keep=Math.random()<density;}
+        if(!keep)ST.removedCells.add(k);
+      }
+      this.updateCellVisuals();App.ui.toast('Forme 3D générée');
+    },
+    moveAgentVisual(){if(this.agentMesh)this.agentMesh.position.copy(this.cellPos(ST.pos.x,ST.pos.y,ST.pos.z));},
+    updateCellVisuals(){
+      const n=CFG3D.size,maxV=Math.max(...Object.values(ST.visits),1);this.clearPolicyArrows();
+      for(let x=0;x<n;x++)for(let y=0;y<n;y++)for(let z=0;z<n;z++){
+        const k=`${x},${y},${z}`;const mesh=this.meshes[x]&&this.meshes[x][y]&&this.meshes[x][y][z];if(!mesh)continue;
+        if(ST.removedCells.has(k)){mesh.visible=false;continue;}mesh.visible=true;mesh.scale.set(1,1,1);
+        const oldMat=mesh.material;let newMat=null;
+        if(ST.obstacles.has(k)){newMat=new THREE.MeshStandardMaterial({map:Tex._3d('wall'),roughness:.85,metalness:.05});mesh.scale.set(.98,.98,.98);}
+        else if(ST.goals.has(k)){const rw=ST.goals.get(k),t=Math.min(rw/1000,1);newMat=new THREE.MeshStandardMaterial({map:Tex._3d('goal'),emissive:new THREE.Color(0,1,.5),emissiveIntensity:.25+t*.35,transparent:true,opacity:.85+t*.1,depthWrite:true});mesh.scale.set(.72,.72,.72);}
+        else if(ST.portals.has(k)){newMat=new THREE.MeshStandardMaterial({map:Tex._3d('portal'),emissive:new THREE.Color(.3,0,.8),emissiveIntensity:.5,transparent:true,opacity:.75,depthWrite:false});}
+        else if(ST.start.x===x&&ST.start.y===y&&ST.start.z===z){newMat=new THREE.MeshStandardMaterial({map:Tex._3d('start'),transparent:true,opacity:.88,depthWrite:true});}
+        else if(ST.mud.has(k)){newMat=new THREE.MeshStandardMaterial({map:Tex._3d('mud'),roughness:.95});}
+        else if(ST.ice.has(k)){newMat=new THREE.MeshStandardMaterial({map:Tex._3d('ice'),roughness:.1,metalness:.2,transparent:true,opacity:.9,depthWrite:true});}
+        else if(ST.fire.has(k)){newMat=new THREE.MeshStandardMaterial({map:Tex._3d('fire'),emissive:new THREE.Color(1,.3,0),emissiveIntensity:.6,transparent:true,opacity:.9});}
+        else{if(!this.showCubes){mesh.visible=false;continue;}if(ST.hideQColors){newMat=new THREE.MeshStandardMaterial({map:Tex._3d('empty'),transparent:true,opacity:.12,depthWrite:false});}else if(ST.viewHeatmap){const v=ST.visits[k]||0;if(v>0){const t=Math.min(v/maxV,1);const hc=heatColor3d(t);newMat=new THREE.MeshStandardMaterial({color:hc,transparent:true,opacity:.15+t*.55,depthWrite:false});}else{newMat=new THREE.MeshStandardMaterial({map:Tex._3d('empty'),transparent:true,opacity:.06,depthWrite:false});}}else{const qs=ST.q[k];if(qs){const mx=Math.max(...qs);if(mx>2){newMat=new THREE.MeshStandardMaterial({color:new THREE.Color(.06,.72,.38),transparent:true,opacity:Math.min(.12+mx/80,.55),depthWrite:false});}else if(mx<-2){newMat=new THREE.MeshStandardMaterial({color:new THREE.Color(.96,.24,.36),transparent:true,opacity:Math.min(.1+Math.abs(mx)/40,.5),depthWrite:false});}else{newMat=new THREE.MeshStandardMaterial({map:Tex._3d('empty'),transparent:true,opacity:.06,depthWrite:false});}}else{newMat=new THREE.MeshStandardMaterial({map:Tex._3d('empty'),transparent:true,opacity:.06,depthWrite:false});}}}
+        if(newMat){if(oldMat&&oldMat!==newMat)oldMat.dispose();mesh.material=newMat;}
+      }
+      if(ST.viewPolicy)this.drawPath();
+    },
+    clearPolicyArrows(){this.policyArrows.forEach(a=>{this.scene.remove(a);a.geometry.dispose();a.material.dispose();});this.policyArrows=[];},
+    drawPath(){
+      if(this._pathLines){this._pathLines.forEach(l=>{this.scene.remove(l);l.geometry.dispose();l.material.dispose();});this._pathLines=[];}else this._pathLines=[];
+      let cx=ST.start.x,cy=ST.start.y,cz=ST.start.z;let segments=[[this.cellPos(cx,cy,cz).clone()]];const vis=new Set([`${cx},${cy},${cz}`]);
+      for(let i=0;i<150;i++){
+        const k=`${cx},${cy},${cz}`;if(ST.goals.has(k))break;const qs=ST.q[k];if(!qs)break;const mQ=Math.max(...qs);if(Math.abs(mQ)<.05)break;
+        const a=qs.indexOf(mQ);let nx=cx,ny=cy,nz=cz;if(a===0)nx++;else if(a===1)nx--;else if(a===2)ny++;else if(a===3)ny--;else if(a===4)nz++;else nz--;
+        const n=CFG3D.size;if(nx<0||ny<0||nz<0||nx>=n||ny>=n||nz>=n)break;
+        const nk=`${nx},${ny},${nz}`;if(vis.has(nk))break;vis.add(nk);cx=nx;cy=ny;cz=nz;segments[segments.length-1].push(this.cellPos(cx,cy,cz).clone());
+      }
+      segments.forEach(pts=>{if(pts.length<2)return;const g=new THREE.BufferGeometry().setFromPoints(pts);const l=new THREE.Line(g,new THREE.LineBasicMaterial({color:0x00ff88,linewidth:2}));this.scene.add(l);this._pathLines.push(l);});
+    },
+    clearPortalRings(){this.portalRings.forEach(r=>{this.scene.remove(r);r.geometry.dispose();r.material.dispose();});this.portalRings=[];},
+    buildPortalRings(){this.clearPortalRings();ST.portals.forEach(k=>{const p=k.split(',').map(Number);const tG=new THREE.TorusGeometry(.42,.06,12,32);const tM=new THREE.MeshStandardMaterial({color:0xa78bfa,emissive:0x7c3aed,emissiveIntensity:.9,transparent:true,opacity:.85});const ring=new THREE.Mesh(tG,tM);ring.position.copy(this.cellPos(p[0],p[1],p[2]||0));this.scene.add(ring);this.portalRings.push(ring);});},
+    _getHitCell(e){const rect=this.renderer.domElement.getBoundingClientRect();this.mouse.x=((e.clientX-rect.left)/rect.width)*2-1;this.mouse.y=-((e.clientY-rect.top)/rect.height)*2+1;this.raycaster.setFromCamera(this.mouse,this.camera);const objs=[];const n=CFG3D.size;for(let x=0;x<n;x++)for(let y=0;y<n;y++)for(let z=0;z<n;z++){const m=this.meshes[x]&&this.meshes[x][y]&&this.meshes[x][y][z];if(m&&m.visible)objs.push(m);}const hits=this.raycaster.intersectObjects(objs);return hits.length>0?hits[0].object.userData:null;},
+    _onClick(e){if(e.button!==0)return;const cell=this._getHitCell(e);if(!cell)return;const{x,y,z}=cell;this.cursor={x,y,z,active:true};this.updateCursorVisual();this.handleInteract(x,y,z);},
+    _onRightClick(e){const cell=this._getHitCell(e);if(!cell)return;const{x,y,z}=cell;const k=`${x},${y},${z}`;if(ST.goals.has(k))App.goalEditor.open(k,e.clientX,e.clientY);},
+    handleInteract(x,y,z){
+      const k=`${x},${y},${z}`,t=ST.tool;if(t==='view'||t==='heatmap'||t==='policy')return;
+      const clr=()=>{ST.obstacles.delete(k);ST.goals.delete(k);ST.mud.delete(k);ST.ice.delete(k);ST.fire.delete(k);ST.portals.delete(k);ST.removedCells.delete(k);};
+      if(t==='wall'){clr();ST.obstacles.add(k);}else if(t==='goal'){clr();ST.goals.set(k,MC().goalReward);App.goalMgr.refresh();}else if(t==='mud'){clr();ST.mud.add(k);}else if(t==='ice'){clr();ST.ice.add(k);}else if(t==='fire'){clr();ST.fire.add(k);}else if(t==='portal'){clr();ST.portals.add(k);}else if(t==='start'){ST.start={x,y,z};clr();if(!ST.running){ST.pos={x,y,z};this.moveAgentVisual();}}else if(t==='eraser'){clr();ST.q[k]=Array(6).fill(0);}
+      ST.envEvents.push({ep:ST.episode,label:t});App.chart.update();this.updateCellVisuals();this.drawPath();this.buildPortalRings();
+    },
+    updateCursorVisual(){const{x,y,z}=this.cursor;this.cursorMesh.position.copy(this.cellPos(x,y,z));this.cursorMesh.visible=this.cursor.active;this.updateCursorHUD();},
+    updateCursorHUD(){const hud=document.getElementById('cursor-hud');if(!this.cursor.active){hud.classList.remove('show');return;}hud.classList.add('show');const{x,y,z}=this.cursor;const k=`${x},${y},${z}`;const type=ST.obstacles.has(k)?'mur':ST.goals.has(k)?`goal(${ST.goals.get(k)})`:ST.portals.has(k)?'portail':ST.fire.has(k)?'🔥feu':(ST.start.x===x&&ST.start.y===y&&ST.start.z===z)?'départ':ST.mud.has(k)?'boue':ST.ice.has(k)?'glace':'vide';document.getElementById('c-pos').textContent=`(${x}, ${y}, ${z})`;document.getElementById('c-type').textContent=type;const qs=ST.q[k]||Array(6).fill(0);document.getElementById('c-qvals').textContent=['+X','-X','+Y','-Y','+Z','-Z'].map((d,i)=>`${d}:${qs[i].toFixed(1)}`).join(' ');}
+  },
+
+
+
+  // ════════════════════════════════════════════════════════
+  // KEYBOARD
+  // ════════════════════════════════════════════════════════
+  initKeyboard(){
+    document.addEventListener('keydown',e=>{
+      if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName))return;
+      const key=e.key,is3=CFG.mode==='3d',n=is3?CFG3D.size:CFG2D.size;
+      if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','PageUp','PageDown'].includes(key)){
+        e.preventDefault();
+        if(is3){
+          const c=this.mode3d.cursor;if(!c.active){c.x=ST.pos.x;c.y=ST.pos.y;c.z=ST.pos.z;c.active=true;}
+          const az=this.mode3d.controls.getAzimuthalAngle(),oct=((Math.round(az/(Math.PI/2))%4)+4)%4;
+          let dx=0,dz=0;if(key==='ArrowRight')dx=1;else if(key==='ArrowLeft')dx=-1;else if(key==='ArrowDown')dz=1;else if(key==='ArrowUp')dz=-1;else if(key==='PageDown'){c.y=Math.min(n-1,c.y+1);}else if(key==='PageUp'){c.y=Math.max(0,c.y-1);}
+          if(dx!==0||dz!==0){let rx=dx,rz=dz;if(oct===1){rx=-dz;rz=dx;}else if(oct===2){rx=-dx;rz=-dz;}else if(oct===3){rx=dz;rz=-dx;}c.x=Math.max(0,Math.min(n-1,c.x+rx));c.z=Math.max(0,Math.min(n-1,c.z+rz));}
+          this.mode3d.updateCursorVisual();const b=document.getElementById('kbd-badge');b.classList.add('show');clearTimeout(this._bt);this._bt=setTimeout(()=>b.classList.remove('show'),2000);
+        }return;
+      }
+      if(key==='Enter'){e.preventDefault();if(is3&&this.mode3d.cursor.active){const c=this.mode3d.cursor;this.mode3d.handleInteract(c.x,c.y,c.z);}return;}
+      if(key===' '){e.preventDefault();this.core.toggleRun();return;}
+    });
+  },
+
+  // ════════════════════════════════════════════════════════
+  // IMAGE IMPORT
+  // ════════════════════════════════════════════════════════
+  imageImport:{
+    _img:null,
+    init(){
+      const drop=document.getElementById('import-drop');
+      drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('drag');});
+      drop.addEventListener('dragleave',()=>drop.classList.remove('drag'));
+      drop.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('drag');const f=e.dataTransfer.files[0];if(f)this._loadFile2(f);});
+    },
+    loadFile(input){if(input.files[0])this._loadFile2(input.files[0]);},
+    _loadFile2(file){
+      const img=new Image();img.onload=()=>{this._img=img;this.preview();document.getElementById('btn-apply-import').style.display='block';};
+      if(file.type==='image/svg+xml'||file.name.endsWith('.svg')){const reader=new FileReader();reader.onload=e=>{const blob=new Blob([e.target.result],{type:'image/svg+xml'});img.src=URL.createObjectURL(blob);};reader.readAsText(file);}
+      else img.src=URL.createObjectURL(file);
+    },
+    preview(){
+      if(!this._img)return;const res=parseInt(document.getElementById('inp-import-res').value);
+      const pc=document.getElementById('import-preview');pc.style.display='block';pc.width=res;pc.height=res;
+      const ctx=pc.getContext('2d');ctx.drawImage(this._img,0,0,res,res);
+      const id=ctx.getImageData(0,0,res,res);const d=id.data;
+      for(let i=0;i<d.length;i+=4){const r=d[i],g=d[i+1],b=d[i+2],a=d[i+3];const bright=(r+g+b)/3;if(a<128||bright<128){d[i]=200;d[i+1]=50;d[i+2]=50;d[i+3]=200;}}
+      ctx.putImageData(id,0,0);
+    },
+    apply(){
+      if(!this._img)return;const res=parseInt(document.getElementById('inp-import-res').value);
+      const tmpCanvas=document.createElement('canvas');tmpCanvas.width=res;tmpCanvas.height=res;const ctx=tmpCanvas.getContext('2d');ctx.drawImage(this._img,0,0,res,res);
+      const id=ctx.getImageData(0,0,res,res);const d=id.data;
+      CFG2D.size=res;document.getElementById('inp-size2d').value=res;document.getElementById('txt-size2d').textContent=`${res}×${res}`;
+      App.core.stop();ST.obstacles.clear();ST.mud.clear();ST.ice.clear();ST.fire.clear();ST.portals.clear();ST.goals.clear();ST.q={};ST.visits={};ST.history=[];ST.episode=0;ST.wins=0;
+      ST.walkable=new Set();
+      for(let y=0;y<res;y++)for(let x=0;x<res;x++){
+        const i=(y*res+x)*4,r=d[i],g=d[i+1],b=d[i+2],a=d[i+3];const bright=(r+g+b)/3;
+        if(a<128||bright<128){ST.obstacles.add(`${x},${y}`);}else{ST.walkable.add(`${x},${y}`);}
+      }
+      const wArr=[...ST.walkable];
+      if(wArr.length>0){ST.start={x:+wArr[0].split(',')[0],y:+wArr[0].split(',')[1],z:0};ST.pos={...ST.start};}
+      if(wArr.length>1){const last=wArr[wArr.length-1];ST.goals.set(last,MC().goalReward);}
+      App.mode2d.activate();App.goalMgr.refresh();document.getElementById('import-panel').classList.remove('open');App.ui.toast(`Grille importée : ${res}×${res}`);
+    }
+  },
+
+  // ════════════════════════════════════════════════════════
+  // CHART
+  // ════════════════════════════════════════════════════════
+  chart:{
+    inst:null,mIdx:0,smooth:5,
+    M:[{id:'r',c:'#7c3aed'},{id:'s',c:'#f59e0b'},{id:'w',c:'#10b981'},{id:'all'}],
+    init(){
+      const ctx=document.getElementById('chart').getContext('2d');Chart.defaults.color='#64748b';
+      const evtPlugin={id:'evtLines',afterDraw:ch=>{
+        const ctx=ch.ctx,xA=ch.scales.x,yA=ch.scales.y;
+        ST.envEvents.forEach(evt=>{const idx=ch.data.labels.indexOf(evt.ep);if(idx<0)return;const x=xA.getPixelForTick(idx);ctx.save();ctx.beginPath();ctx.moveTo(x,yA.top);ctx.lineTo(x,yA.bottom);ctx.lineWidth=1;ctx.setLineDash([2,4]);ctx.strokeStyle='rgba(255,255,255,.25)';ctx.stroke();ctx.fillStyle='#aaa';ctx.font='8px Arial';ctx.fillText(evt.label,x+2,yA.bottom-8);ctx.restore();});
+      }};
+      this.inst=new Chart(ctx,{type:'line',data:{labels:[],datasets:[]},plugins:[evtPlugin],options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{display:false},y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{font:{family:'JetBrains Mono',size:8}}}},animation:false,interaction:{intersect:false,mode:'index'},elements:{point:{radius:0}}}});
+    },
+    update(){
+      if(!this.inst||!ST.history.length)return;
+      const labels=ST.history.map(h=>h.ep);
+      if(this.mIdx===3){
+        this.inst.data.labels=labels;
+        this.inst.data.datasets=[
+          {data:ST.history.map(h=>h.r),borderColor:'#7c3aed',borderWidth:1.5,pointRadius:0,tension:.4,fill:false,yAxisID:'y'},
+          {data:ST.history.map(h=>h.s),borderColor:'#f59e0b',borderWidth:1.5,pointRadius:0,tension:.4,fill:false,yAxisID:'y1'},
+          {data:ST.history.map(h=>h.w*100),borderColor:'#10b981',borderWidth:1.5,pointRadius:0,tension:.4,fill:false,yAxisID:'y2'},
+        ];
+        this.inst.options.scales.y1={type:'linear',display:false,position:'right'};this.inst.options.scales.y2={type:'linear',display:false,position:'right',max:100};
+      }else{
+        const m=this.M[this.mIdx];let raw=ST.history.map(h=>m.id==='r'?h.r:m.id==='s'?h.s:h.w*100);
+        if(this.smooth>1&&raw.length>this.smooth)raw=raw.map((_,i)=>{let s=0,c=0;for(let j=0;j<this.smooth;j++)if(i-j>=0){s+=raw[i-j];c++;}return s/c;});
+        this.inst.data.labels=labels;this.inst.data.datasets=[{data:raw,borderColor:m.c,borderWidth:1.5,pointRadius:0,tension:.4,fill:true,backgroundColor:m.c+'18',yAxisID:'y'}];
+        delete this.inst.options.scales.y1;delete this.inst.options.scales.y2;
+      }
+      this.inst.update();
+      document.getElementById('lbl-metric').textContent=['Score','Pas','Succès%','Tout'][this.mIdx];
+    },
+    reset(){if(this.inst){this.inst.data.labels=[];this.inst.data.datasets=[];this.inst.update();}},
+    prev(){this.mIdx=(this.mIdx-1+4)%4;this.update();},
+    next(){this.mIdx=(this.mIdx+1)%4;this.update();},
+    setSmooth(v){this.smooth=parseInt(v);this.update();}
+  },
+
+  // ════════════════════════════════════════════════════════
+  // IMPORT / EXPORT
+  // ════════════════════════════════════════════════════════
+  io:{
+    doExport(){
+      const data={mode:CFG.mode,cfg2d:CFG2D,cfg3d:CFG3D,obstacles:[...ST.obstacles],goals:[...ST.goals.entries()],mud:[...ST.mud],ice:[...ST.ice],fire:[...ST.fire],portals:[...ST.portals],start:ST.start,q:ST.q};
+      const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='qlab.json';a.click();
+    },
+    doImport(input){
+      if(!input.files[0])return;
+      const reader=new FileReader();
+      reader.onload=e=>{
+        try{
+          const data=JSON.parse(e.target.result);App.core.stop();
+          if(data.cfg2d)Object.assign(CFG2D,data.cfg2d);if(data.cfg3d)Object.assign(CFG3D,data.cfg3d);
+          ST.obstacles=new Set(data.obstacles||[]);ST.goals=new Map(data.goals||[]);ST.mud=new Set(data.mud||[]);ST.ice=new Set(data.ice||[]);ST.fire=new Set(data.fire||[]);ST.portals=new Set(data.portals||[]);ST.start=data.start||{x:0,y:0,z:0};ST.q=data.q||{};ST.visits={};ST.history=[];ST.envEvents=[];ST.episode=0;ST.wins=0;ST.reward=0;ST.steps=0;ST.pos={...ST.start};
+          App.chart.reset();App.cfg.syncUIFromMode();App.goalMgr.refresh();
+          if(data.mode&&data.mode!==CFG.mode)App.setMode(data.mode);else if(CFG.mode==='2d')App.mode2d.draw();else App.mode3d.rebuild();
+          App.ui.toast('JSON importé !');
+        }catch(err){App.ui.toast('Erreur import : '+err.message,3500);}
+      };
+      reader.readAsText(input.files[0]);input.value='';
+    }
+  },
+
+  toggleHideQ(){
+    ST.hideQColors=!ST.hideQColors;
+    document.getElementById('btn-hide-q').classList.toggle('active',ST.hideQColors);
+    if(CFG.mode==='2d'){if(App.mode2d._view3d)App.mode2d._rebuild3DFlat();else App.mode2d.draw();}
+    else if(CFG.mode==='3d')this.mode3d.updateCellVisuals();
+  },
+  toggleLang(){this.lang=this.lang==='fr'?'en':'fr';document.getElementById('lang-btn').textContent=this.lang.toUpperCase();},
+  applyLang(){},
+};
+
+window.onload=()=>App.init();
+</script>
 </body>
 </html>
