@@ -1,4 +1,6 @@
-# Q-LAB: Gridworld AI Simulator
+﻿# Q-LAB: Gridworld AI Simulator
+
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) ![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=flat&logo=javascript&logoColor=black) [![Release](https://img.shields.io/github/v/release/infinition/Q-LAB?style=flat)](https://github.com/infinition/Q-LAB/releases) [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?style=flat&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/infinition)
 
 A high-performance, zero-dependency visualization of Reinforcement Learning running entirely in the browser.
 
@@ -43,4 +45,4 @@ This project has no external build steps or dependency installation required.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT. See [LICENSE](LICENSE).
