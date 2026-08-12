@@ -1,4 +1,7 @@
-﻿# Q-LAB: Gridworld AI Simulator
+<img width="336" height="328" alt="image-removebg-preview (6)" src="https://github.com/user-attachments/assets/d6b05f9e-fe8f-46be-a95c-a1ef2a858606" />
+
+ 
+ # Q-LAB: Gridworld AI Simulator
 
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) ![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=flat&logo=javascript&logoColor=black) [![Release](https://img.shields.io/github/v/release/infinition/Q-LAB?style=flat)](https://github.com/infinition/Q-LAB/releases) [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?style=flat&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/infinition)
 
