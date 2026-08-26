@@ -1,4 +1,6 @@
-<img width="336" height="328" alt="image-removebg-preview (6)" src="https://github.com/user-attachments/assets/d6b05f9e-fe8f-46be-a95c-a1ef2a858606" />
+<p align="center">
+  <img src=".github/Q-LAB.png" alt="Q-LAB icon" width="336" height="328" />
+</p>
 
  
  # Q-LAB: Gridworld AI Simulator
